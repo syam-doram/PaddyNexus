@@ -1984,10 +1984,10 @@ app.get('/api/mill-settlements/:millId', (req, res) => {
       SELECT 
         l.*, 
         SUM(b.bags) as totalBags, 
-        SUM(CAST(b.weight AS REAL)) as totalWeightKgs,
-        (SUM(CAST(b.weight AS REAL)) / 1000.0) as totalWeightTons,
+        (SUM(b.bags) * 73.0) as totalWeightKgs,
+        (SUM(b.bags) * 73.0 / 1000.0) as totalWeightTons,
         (SELECT paddyType FROM batches WHERE lotId = l.id LIMIT 1) as paddyType,
-        SUM(b.bags * COALESCE(lr.rate, 1200)) as totalAmount,
+        (SUM(b.bags) * 73.0 / 100.0 * COALESCE(lr.rate, 1200)) as totalAmount,
         AVG(CAST(REPLACE(b.moisture, '%', '') AS REAL)) as avgMoisture,
         COALESCE(lr.rate, 1200) as paddyRate,
         cr.bag_rate as dealer_commission_rate,

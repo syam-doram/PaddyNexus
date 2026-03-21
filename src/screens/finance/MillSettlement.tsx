@@ -177,7 +177,7 @@ export default function MillSettlement() {
             <div class="item"><div class="label">Date</div><div class="value">${lot.date}</div></div>
             <div class="item"><div class="label">Paddy Type</div><div class="value">${lot.paddyType || 'N/A'}</div></div>
             <div class="item"><div class="label">Total Bags</div><div class="value">${lot.totalBags || 0} Bags</div></div>
-            <div class="item"><div class="label">Total Weight</div><div class="value">${lot.totalWeightTons?.toFixed(2)} Tons</div></div>
+            <div class="item"><div class="label">Total Quantity</div><div class="value">${((lot.totalBags || 0) * 73 / 100).toFixed(2)} Quintals</div></div>
           </div>
         </div>
 
@@ -1081,7 +1081,7 @@ function MillLotDashboard({
               <div className="flex items-center justify-between mb-4">
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Lot Gross Amount</p>
                 <div className="flex flex-col items-end">
-                  <span className="text-[8px] font-black text-slate-400 uppercase">{lot.totalBags || 0} Bags × ₹{lot.paddyRate || 1200}</span>
+                  <span className="text-[8px] font-black text-slate-400 uppercase">{((lot.totalBags || 0) * 73 / 100).toFixed(2)} Quintals × ₹{lot.paddyRate || 1200}</span>
                 </div>
               </div>
               <h4 className="text-2xl md:text-4xl font-[1000] text-slate-900 dark:text-white italic tracking-tighter tabular-nums leading-none">
@@ -1097,7 +1097,7 @@ function MillLotDashboard({
               <div className="pt-4 grid grid-cols-2 gap-4 border-t border-slate-50 dark:border-white/5">
                 <div>
                   <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Quantity</p>
-                  <p className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase">{lot.totalWeightTons?.toFixed(2)} Tons <span className="text-[10px] text-slate-400">/ {lot.totalWeightKgs?.toLocaleString('en-IN')} Kgs</span></p>
+                  <p className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase">{((lot.totalBags || 0) * 73 / 100).toFixed(2)} Quintals <span className="text-[10px] text-slate-400">/ {((lot.totalBags || 0) * 73).toLocaleString('en-IN')} Kgs</span></p>
                 </div>
                 <div>
                   <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Paddy Type</p>
