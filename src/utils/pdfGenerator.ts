@@ -126,7 +126,7 @@ export const generatePremiumPDF = (
     doc.setFontSize(8);
     doc.setTextColor(148, 163, 184);
     doc.text(
-      `PaddyNaxus - Advanced Logistics Intelligence | Page ${i} of ${pageCount}`,
+      `PaddyNexus - Advanced Logistics Intelligence | Page ${i} of ${pageCount}`,
       pageWidth / 2,
       doc.internal.pageSize.height - 10,
       { align: 'center' }

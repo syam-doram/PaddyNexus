@@ -132,7 +132,7 @@ export default function PaddyEarn() {
     doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
-    doc.text("PaddyNaxus Enterprise | Strategic Partner Audit", 14, 37);
+    doc.text("PaddyNexus Enterprise | Strategic Partner Audit", 14, 37);
 
     // Metadata Right-aligned
     doc.setTextColor(51, 65, 85);
@@ -206,7 +206,7 @@ export default function PaddyEarn() {
         // Footer on every page
         doc.setFontSize(7);
         doc.setTextColor(148, 163, 184);
-        doc.text(`CONFIDENTIAL - PaddyNaxus Intelligence Report - Page ${data.pageNumber}`, 14, 285);
+        doc.text(`CONFIDENTIAL - PaddyNexus Intelligence Report - Page ${data.pageNumber}`, 14, 285);
         doc.text("This is a computer-generated institutional statement and does not require a physical signature.", 110, 285);
       }
     });
@@ -708,7 +708,7 @@ export default function PaddyEarn() {
                             <div>
                                <p className="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-wider mb-1">Institutional Audit Clearance</p>
                                <p className="text-[9px] text-slate-400 dark:text-slate-500 leading-relaxed uppercase tracking-tight">
-                                  This performance statement is a consolidated record of settled agricultural lots for the specified period. All tonnage values and HUB destination metadata have been verified against PaddyNaxus Strategic Logistics Protocol. Settlement values represent net ROI after operational adjustments.
+                                  This performance statement is a consolidated record of settled agricultural lots for the specified period. All tonnage values and HUB destination metadata have been verified against PaddyNexus Strategic Logistics Protocol. Settlement values represent net ROI after operational adjustments.
                                </p>
                             </div>
                          </div>
