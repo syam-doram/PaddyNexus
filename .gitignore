@@ -1,0 +1,11 @@
+*.db
+*.db-shm
+*.db-wal
+.idea/
+tmp/
+*.txt
+*.log
+node_modules/
+dist/
+.env*
+!.env.example

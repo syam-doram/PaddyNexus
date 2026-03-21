@@ -1,0 +1,7 @@
+{
+  "name": "PaddyManager Load Encounter",
+  "description": "A comprehensive agri-tech solution for farmers and millers to manage machine logs, tracking, payments, and reports.",
+  "requestFramePermissions": [
+    "geolocation"
+  ]
+}

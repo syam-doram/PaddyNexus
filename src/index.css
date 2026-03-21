@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Work Sans", sans-serif;
+  --color-primary: #17cf54;
+  --color-primary-dark: #1da31d;
+  --color-background-light: #f8fafc;
+  --color-background-dark: #0f172a;
+  --color-surface-dark: #1e293b;
+  --color-surface-light: #ffffff;
+  --color-border-dark: #334155;
+  --color-border-light: #e2e8f0;
+  --color-text-primary-dark: #f8fafc;
+  --color-text-secondary-dark: #94a3b8;
+  --color-text-primary-light: #0f172a;
+  --color-text-secondary-light: #64748b;
+}
+
+@layer base {
+
+  html,
+  body,
+  #root {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    @apply bg-background-light dark:bg-background-dark font-sans text-text-primary-light dark:text-text-primary-dark antialiased overflow-hidden transition-colors duration-300;
+    font-size: 17px;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+}
