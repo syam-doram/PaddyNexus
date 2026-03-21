@@ -137,7 +137,7 @@ export default function MachineEarn() {
     doc.setTextColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
     doc.setFontSize(8);
     doc.setFont("helvetica", "normal");
-    doc.text("PaddyManager Enterprise | Strategic Fleet Partner Audit", 14, 37);
+    doc.text("PaddyNaxus Enterprise | Strategic Fleet Partner Audit", 14, 37);
 
     // Metadata Right-aligned
     doc.setTextColor(51, 65, 85);
@@ -211,7 +211,7 @@ export default function MachineEarn() {
       didDrawPage: (data) => {
         doc.setFontSize(7);
         doc.setTextColor(148, 163, 184);
-        doc.text(`CONFIDENTIAL - PaddyManager Machine Intelligence Audit - Page ${data.pageNumber}`, 14, 285);
+        doc.text(`CONFIDENTIAL - PaddyNaxus Machine Intelligence Audit - Page ${data.pageNumber}`, 14, 285);
         doc.text("Note: Revenue values represent net payout potency for the reported period.", 130, 285);
       }
     });
@@ -878,7 +878,7 @@ export default function MachineEarn() {
                             <div>
                                <p className="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-wider mb-1">Fleet Intelligence Security Protocol</p>
                                <p className="text-[9px] text-slate-400 dark:text-slate-500 leading-relaxed uppercase tracking-tight">
-                                  This performance ledger is a verified record of machine operations and corresponding revenue potency for the strategic partner entity. All runtime metrics and ROI yields have been processed through the PaddyManager Intelligence Engine. Individual operator logs are attached to the secure institutional master-file.
+                                  This performance ledger is a verified record of machine operations and corresponding revenue potency for the strategic partner entity. All runtime metrics and ROI yields have been processed through the PaddyNaxus Intelligence Engine. Individual operator logs are attached to the secure institutional master-file.
                                </p>
                             </div>
                          </div>

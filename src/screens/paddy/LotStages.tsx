@@ -166,7 +166,7 @@ export default function LotStages() {
       .footer{margin-top:80px;padding-top:30px;border-top:2px solid #f1f5f9;display:flex;justify-content:space-between;font-size:11px;color:#94a3b8;font-weight:700;text-transform:uppercase}
     </style></head><body>
       <div class="header">
-        <div class="logo">PaddyManager<span class="accent">.</span></div>
+        <div class="logo">PaddyNaxus<span class="accent">.</span></div>
         <div style="text-align:right">
           <div style="font-weight:900;font-size:18px">LOT #${lot.id}</div>
           <div style="font-size:11px;color:#64748b;font-weight:700;text-transform:uppercase">Settlement ID: ${Math.random().toString(36).substr(2, 9).toUpperCase()}</div>
@@ -242,7 +242,7 @@ export default function LotStages() {
 
       <div class="footer">
         <span>Generated: ${new Date().toLocaleDateString('en-IN')}</span>
-        <span>Secure Digital Receipt • PaddyManager v2.0</span>
+        <span>Secure Digital Receipt • PaddyNaxus v2.0</span>
       </div>
     </body></html>`;
     const w = window.open('', '_blank');
