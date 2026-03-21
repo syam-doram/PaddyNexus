@@ -1117,15 +1117,46 @@ function MillLotDashboard({
                 </div>
               </div>
 
-              {/* New Metrics Row 2 */}
-              <div className="grid grid-cols-2 gap-4">
+              {/* New Metrics Row 2 - Scale Intelligence */}
+              {lot.post_load_scale > 0 && lot.pre_load_scale > 0 ? (
+                <div className="pt-4 mt-4 border-t border-slate-50 dark:border-white/5 space-y-4">
+                  <p className="text-[10px] font-black text-blue-500 uppercase tracking-[0.2em] mb-2">Digital Scale IQ</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    <div className="bg-slate-50 dark:bg-white/5 p-2 rounded-xl border border-slate-100 dark:border-white/5">
+                      <p className="text-[7px] font-black text-slate-400 uppercase mb-1">Unladen</p>
+                      <p className="text-xs font-black text-slate-800 dark:text-slate-200 tabular-nums">{lot.pre_load_scale?.toLocaleString('en-IN')}K</p>
+                    </div>
+                    <div className="bg-slate-50 dark:bg-white/5 p-2 rounded-xl border border-slate-100 dark:border-white/5">
+                      <p className="text-[7px] font-black text-slate-400 uppercase mb-1">Laden</p>
+                      <p className="text-xs font-black text-slate-800 dark:text-slate-200 tabular-nums">{lot.post_load_scale?.toLocaleString('en-IN')}K</p>
+                    </div>
+                    <div className="bg-primary/5 p-2 rounded-xl border border-primary/10">
+                      <p className="text-[7px] font-black text-primary uppercase mb-1">Net Delta</p>
+                      <p className="text-xs font-black text-primary tabular-nums">{lot.totalWeightKgs?.toLocaleString('en-IN')}K</p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="pt-4 grid grid-cols-2 gap-4 border-t border-slate-50 dark:border-white/5">
+                  <div>
+                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Yield Method</p>
+                    <p className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase italic">Standard 73K</p>
+                  </div>
+                  <div>
+                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Paddy Weight</p>
+                    <p className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase">{lot.totalWeightKgs?.toLocaleString('en-IN')} Kgs</p>
+                  </div>
+                </div>
+              )}
+
+              <div className="pt-4 grid grid-cols-2 gap-4 border-t border-slate-50 dark:border-white/5">
                 <div>
-                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Purchase Rate</p>
-                  <p className="text-sm font-black text-slate-800 dark:text-slate-200">₹{lot.paddyRate || 1200} <span className="text-[10px] text-slate-400">/ Quintal</span></p>
+                   <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Purchase Rate</p>
+                   <p className="text-sm font-black text-slate-800 dark:text-slate-200">₹{lot.paddyRate || 1200} <span className="text-[10px] text-slate-400">/ Q</span></p>
                 </div>
                 <div>
-                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Factory Scale</p>
-                  <p className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase">{lot.weigh_scale_kgs || 'N/A'} Kgs</p>
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Entry Point</p>
+                  <p className="text-sm font-black text-slate-800 dark:text-slate-200 uppercase italic">{lot.load_area || 'Load Area'}</p>
                 </div>
               </div>
             </div>
