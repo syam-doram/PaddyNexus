@@ -1985,16 +1985,16 @@ app.get('/api/mill-settlements/:millId', (req, res) => {
         l.*, 
         SUM(b.bags) as totalBags, 
         CASE 
-          WHEN l.post_load_scale > 0 THEN (l.post_load_scale - l.pre_load_scale)
+          WHEN l.post_load_scale > 0 AND l.pre_load_scale > 0 THEN (l.post_load_scale - l.pre_load_scale)
           ELSE (SUM(b.bags) * 73.0)
         END as totalWeightKgs,
         CASE 
-          WHEN l.post_load_scale > 0 THEN (l.post_load_scale - l.pre_load_scale) / 1000.0
+          WHEN l.post_load_scale > 0 AND l.pre_load_scale > 0 THEN (l.post_load_scale - l.pre_load_scale) / 1000.0
           ELSE (SUM(b.bags) * 73.0 / 1000.0)
         END as totalWeightTons,
         (SELECT paddyType FROM batches WHERE lotId = l.id LIMIT 1) as paddyType,
         CASE 
-          WHEN l.post_load_scale > 0 THEN ((l.post_load_scale - l.pre_load_scale) / 100.0 * COALESCE(lr.rate, 1200))
+          WHEN l.post_load_scale > 0 AND l.pre_load_scale > 0 THEN ((l.post_load_scale - l.pre_load_scale) / 100.0 * COALESCE(lr.rate, 1200))
           ELSE (SUM(b.bags) * 73.0 / 100.0 * COALESCE(lr.rate, 1200))
         END as totalAmount,
         AVG(CAST(REPLACE(b.moisture, '%', '') AS REAL)) as avgMoisture,

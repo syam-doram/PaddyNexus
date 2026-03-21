@@ -177,7 +177,7 @@ export default function MillSettlement() {
             <div class="item"><div class="label">Date</div><div class="value">${lot.date}</div></div>
             <div class="item"><div class="label">Paddy Type</div><div class="value">${lot.paddyType || 'N/A'}</div></div>
             <div class="item"><div class="label">Total Bags</div><div class="value">${lot.totalBags || 0} Bags</div></div>
-            <div class="item"><div class="label">Yield Basis</div><div class="value">${lot.post_load_scale > 0 ? 'Digital Scales' : 'Standard 73kg/Bag'}</div></div>
+            <div class="item"><div class="label">Yield Basis</div><div class="value">${(lot.post_load_scale > 0 && lot.pre_load_scale > 0) ? 'Digital Scales' : 'Standard 73kg/Bag'}</div></div>
             <div class="item"><div class="label">Net Quantity</div><div class="value">${(lot.totalWeightKgs / 100).toFixed(2)} Quintals</div></div>
           </div>
         </div>
@@ -1083,7 +1083,7 @@ function MillLotDashboard({
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em]">Lot Gross Amount</p>
                 <div className="flex flex-col items-end">
                   <span className="text-[8px] font-black text-slate-400 uppercase">
-                    {(lot.post_load_scale > 0) 
+                    {(lot.post_load_scale > 0 && lot.pre_load_scale > 0) 
                       ? `${(lot.totalWeightKgs / 100).toFixed(2)}Q (Delta) × ₹${lot.paddyRate || 1200}`
                       : `${((lot.totalBags || 0) * 73 / 100).toFixed(2)}Q (Std) × ₹${lot.paddyRate || 1200}`
                     }
@@ -1095,7 +1095,7 @@ function MillLotDashboard({
               </h4>
               <div className="mt-4 pt-4 border-t border-slate-50 dark:border-white/5">
                 <p className="text-[9px] font-black text-primary uppercase tracking-widest leading-relaxed">
-                  Audit Basis: {lot.post_load_scale > 0 ? `Scales (${lot.post_load_scale} - ${lot.pre_load_scale})` : 'Bag Count (73kg/bag)'}
+                  Audit Basis: {(lot.post_load_scale > 0 && lot.pre_load_scale > 0) ? `Scales (${lot.post_load_scale} - ${lot.pre_load_scale})` : 'Bag Count (73kg/bag)'}
                 </p>
                 <p className="text-[9px] font-black text-primary uppercase tracking-widest leading-relaxed mt-1">
                   Audit Value: ₹{grossAmount.toLocaleString('en-IN')} + ₹{traderAmount.toLocaleString('en-IN')} + ₹{labourAmount.toLocaleString('en-IN')} = ₹{(grossAmount + traderAmount + labourAmount).toLocaleString('en-IN')}
