@@ -663,8 +663,13 @@ export default function TraderEntries() {
       {/* Labour Group Add Modal */}
       <AnimatePresence>
         {showLabourModal && (
-          <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center p-0 md:p-4 bg-slate-900/60 backdrop-blur-sm">
-            <motion.div initial={{ opacity: 0, scale: 0.95, y: 100 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 100 }} className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-t-[32px] md:rounded-[40px] shadow-2xl overflow-hidden flex flex-col max-h-[95vh] md:max-h-[90vh]">
+          <div className="fixed inset-0 z-[200] flex items-end md:items-center justify-center p-0 md:p-4 bg-slate-900/60 backdrop-blur-sm">
+            <motion.div initial={{ opacity: 0, y: "100%" }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: "100%" }} transition={{ type: "spring", damping: 25, stiffness: 200 }} className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-t-[40px] md:rounded-[40px] shadow-2xl overflow-hidden flex flex-col h-[92vh] md:h-auto max-h-[95vh] md:max-h-[90vh]">
+              {/* Drag Handle for Mobile */}
+              <div className="w-full h-1.5 flex items-center justify-center pt-4 pb-2 md:hidden">
+                <div className="w-12 h-1 bg-slate-200 dark:bg-slate-800 rounded-full" />
+              </div>
+
               <div className="p-6 md:p-8 border-b border-slate-100 dark:border-white/5 flex items-center justify-between">
                 <div>
                   <h3 className="text-xl md:text-2xl font-black uppercase tracking-tighter">Register <span className="text-primary">Labour Group</span></h3>
@@ -717,7 +722,7 @@ export default function TraderEntries() {
                 </div>
               </div>
 
-              <div className="p-6 md:p-8 border-t border-slate-100 dark:border-white/5">
+              <div className="p-6 md:p-8 pb-10 md:pb-8 border-t border-slate-100 dark:border-white/5">
                 <button onClick={handleLabourSubmit} disabled={isSubmittingLabour || !labourName} className="w-full h-14 md:h-16 bg-primary text-background-dark rounded-xl md:rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.01] active:scale-95 transition-all disabled:opacity-50 text-[11px] md:text-[12px]">
                   {isSubmittingLabour ? 'AUTHORIZING...' : 'FINALIZE GROUP REGISTRY'}
                 </button>
@@ -730,8 +735,13 @@ export default function TraderEntries() {
       {/* Operator Add Modal */}
       <AnimatePresence>
         {showOpModal && (
-          <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center p-0 md:p-4 bg-slate-900/60 backdrop-blur-sm">
-            <motion.div initial={{ opacity: 0, scale: 0.95, y: 100 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 100 }} className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-t-[32px] md:rounded-[40px] shadow-2xl overflow-hidden flex flex-col">
+          <div className="fixed inset-0 z-[200] flex items-end md:items-center justify-center p-0 md:p-4 bg-slate-900/60 backdrop-blur-sm">
+            <motion.div initial={{ opacity: 0, y: "100%" }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: "100%" }} transition={{ type: "spring", damping: 25, stiffness: 200 }} className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-t-[40px] md:rounded-[40px] shadow-2xl overflow-hidden flex flex-col h-[92vh] md:h-auto">
+              {/* Drag Handle for Mobile */}
+              <div className="w-full h-1.5 flex items-center justify-center pt-4 pb-2 md:hidden">
+                <div className="w-12 h-1 bg-slate-200 dark:bg-slate-800 rounded-full" />
+              </div>
+
               <div className="p-6 md:p-8 border-b border-slate-100 dark:border-white/5 flex items-center justify-between">
                 <div>
                   <h3 className="text-xl md:text-2xl font-black uppercase tracking-tighter">Register <span className="text-primary">Operator</span></h3>
@@ -760,7 +770,7 @@ export default function TraderEntries() {
                   <label className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Resident Address</label>
                   <input type="text" value={opAddress} onChange={e => setOpAddress(e.target.value)} placeholder="Full Postal Address" className="w-full h-12 md:h-14 px-5 md:px-6 bg-slate-50 dark:bg-white/5 border-2 border-transparent focus:border-primary/30 rounded-xl md:rounded-2xl text-[13px] md:text-[14px] font-bold focus:outline-none transition-all" />
                 </div>
-                <button type="submit" disabled={isSubmittingOp || !opName || !opMobile} className="w-full h-14 md:h-16 bg-primary text-background-dark rounded-xl md:rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.01] active:scale-95 transition-all disabled:opacity-50 text-[11px] md:text-[12px]">
+                <button type="submit" disabled={isSubmittingOp || !opName || !opMobile} className="w-full h-14 md:h-16 bg-primary text-background-dark rounded-xl md:rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.01] active:scale-95 transition-all disabled:opacity-50 text-[11px] md:text-[12px] mb-4 md:mb-0">
                   {isSubmittingOp ? 'AUTHORIZING...' : 'FINALIZE REGISTRATION'}
                 </button>
               </form>
@@ -772,8 +782,13 @@ export default function TraderEntries() {
       {/* Market Entry Modal */}
       <AnimatePresence>
         {showMarketModal && (
-          <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center p-0 md:p-4 bg-slate-900/60 backdrop-blur-sm">
-            <motion.div initial={{ opacity: 0, scale: 0.95, y: 100 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 100 }} className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-t-[32px] md:rounded-[40px] shadow-2xl overflow-hidden flex flex-col">
+          <div className="fixed inset-0 z-[200] flex items-end md:items-center justify-center p-0 md:p-4 bg-slate-900/60 backdrop-blur-sm">
+            <motion.div initial={{ opacity: 0, y: "100%" }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: "100%" }} transition={{ type: "spring", damping: 25, stiffness: 200 }} className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-t-[40px] md:rounded-[40px] shadow-2xl overflow-hidden flex flex-col h-[92vh] md:h-auto">
+              {/* Drag Handle for Mobile */}
+              <div className="w-full h-1.5 flex items-center justify-center pt-4 pb-2 md:hidden">
+                <div className="w-12 h-1 bg-slate-200 dark:bg-slate-800 rounded-full" />
+              </div>
+
               <div className="p-6 md:p-8 border-b border-slate-100 dark:border-white/5 flex items-center justify-between">
                 <div>
                   <h3 className="text-xl md:text-2xl font-black uppercase tracking-tighter">Market <span className="text-primary">Entry</span></h3>
@@ -796,7 +811,7 @@ export default function TraderEntries() {
                   <label className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Observations / Notes</label>
                   <input type="text" value={marketDesc} onChange={e => setMarketDesc(e.target.value)} placeholder="e.g. Seasonal high / Grade A" className="w-full h-12 md:h-14 px-5 md:px-6 bg-slate-50 dark:bg-white/5 border-2 border-transparent focus:border-primary/30 rounded-xl md:rounded-2xl text-[13px] md:text-[14px] font-bold focus:outline-none transition-all" />
                 </div>
-                <button type="submit" disabled={isSubmittingMarket || !paddyType || !marketPrice} className="w-full h-14 md:h-16 bg-primary text-background-dark rounded-xl md:rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.01] active:scale-95 transition-all disabled:opacity-50 text-[11px] md:text-[12px]">
+                <button type="submit" disabled={isSubmittingMarket || !paddyType || !marketPrice} className="w-full h-14 md:h-16 bg-primary text-background-dark rounded-xl md:rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.01] active:scale-95 transition-all disabled:opacity-50 text-[11px] md:text-[12px] mb-4 md:mb-0">
                   {isSubmittingMarket ? 'AUTHORIZING...' : 'FINALIZE MARKET ENTRY'}
                 </button>
               </form>
@@ -808,8 +823,12 @@ export default function TraderEntries() {
       {/* Delete Confirmation Modal */}
       <AnimatePresence>
         {deleteId && (
-          <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-            <motion.div initial={{ opacity: 0, y: 100 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 100 }} className="w-full max-w-md bg-white dark:bg-slate-900 rounded-[40px] p-8 shadow-2xl relative overflow-hidden">
+          <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm">
+            <motion.div initial={{ opacity: 0, y: "100%" }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: "100%" }} transition={{ type: "spring", damping: 25, stiffness: 200 }} className="w-full max-w-md bg-white dark:bg-slate-900 rounded-t-[40px] sm:rounded-[40px] p-8 pb-12 sm:pb-8 shadow-2xl relative overflow-hidden">
+              {/* Drag Handle for Mobile */}
+              <div className="w-full h-1 flex items-center justify-center mb-6 sm:hidden">
+                <div className="w-12 h-1 bg-slate-200 dark:bg-slate-800 rounded-full" />
+              </div>
               <div className="absolute top-0 left-0 w-full h-2 bg-red-500" />
               <div className="w-16 h-16 bg-red-50 dark:bg-red-500/10 rounded-3xl flex items-center justify-center text-red-500 mb-6">
                 <AlertCircle className="w-8 h-8" />

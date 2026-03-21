@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { User, Smartphone, MapPin, Plus, Tractor, Sprout, Shield, Users as UsersIcon, Trash2, Search, Bell } from 'lucide-react';
+import { User, Smartphone, MapPin, Plus, Tractor, Sprout, Shield, Users as UsersIcon, Trash2, Search, Bell, X } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { API_BASE_URL } from '../../config/apiConfig';
 import { useNavigate } from 'react-router-dom';
@@ -245,14 +245,21 @@ export default function TraderUsers() {
       {/* Add Modal */}
       <AnimatePresence>
         {showAddModal && (
-          <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
-            <motion.div initial={{ y: "100%", opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: "100%", opacity: 0 }} className="bg-[#F8FAFC] dark:bg-background-dark w-full max-w-md rounded-[40px] p-8 shadow-2xl relative overflow-hidden">
+          <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center bg-slate-900/40 backdrop-blur-sm p-0 sm:p-4">
+            <motion.div initial={{ y: "100%", opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: "100%", opacity: 0 }} transition={{ type: "spring", damping: 25, stiffness: 200 }} className="bg-[#F8FAFC] dark:bg-background-dark w-full max-w-md rounded-t-[40px] sm:rounded-[40px] p-8 shadow-2xl relative overflow-hidden h-[92vh] sm:h-auto flex flex-col">
+              {/* Drag Handle for Mobile */}
+              <div className="w-full h-1.5 flex items-center justify-center pt-1 pb-4 sm:hidden">
+                <div className="w-12 h-1 bg-slate-200 dark:bg-slate-800 rounded-full" />
+              </div>
+
               <div className="flex justify-between items-center mb-8">
                 <div>
                     <h2 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">New Member</h2>
                     <p className="text-[10px] font-black text-primary uppercase tracking-widest">Access Registration</p>
                 </div>
-                <button onClick={() => { setShowAddModal(false); setErrorMsg(''); }} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-slate-400 font-black">X</button>
+                <button onClick={() => { setShowAddModal(false); setErrorMsg(''); }} className="p-2 bg-slate-100 dark:bg-slate-800 rounded-xl text-slate-400 font-black transition-colors hover:text-slate-600 dark:hover:text-white">
+                  <X className="w-5 h-5" />
+                </button>
               </div>
 
               {errorMsg && (
@@ -261,7 +268,7 @@ export default function TraderUsers() {
                 </div>
               )}
 
-              <form onSubmit={handleAddUser} className="space-y-4">
+              <form onSubmit={handleAddUser} className="space-y-4 flex-1 overflow-y-auto no-scrollbar pb-10">
                 <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-2xl mb-8">
                   <button type="button" onClick={() => setRole('machine_harvest')} className={`flex-1 py-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 ${role === 'machine_harvest' ? 'bg-white dark:bg-slate-800 text-primary shadow-md' : 'text-slate-400'}`}>
                     <Tractor className="w-4 h-4" />

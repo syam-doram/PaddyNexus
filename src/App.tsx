@@ -3,6 +3,9 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth, Role } from './context/AuthContext';
 import { MachineProvider } from './context/MachineContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
+import { SplashScreen as CapSplashScreen } from '@capacitor/splash-screen';
+import { App as CapApp } from '@capacitor/app';
+import { Toast } from '@capacitor/toast';
 import * as Lazy from './screens/lazy';
 
 import MainLayout from './components/MainLayout';
@@ -12,11 +15,7 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactEleme
   const { isAuthenticated, user, loading } = useAuth();
   
   if (loading) {
-    return (
-      <div className="flex h-full items-center justify-center bg-background-light dark:bg-background-dark">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" />
-      </div>
-    );
+    return <SplashScreen />;
   }
 
   if (!isAuthenticated) return <Navigate to="/login" replace />;
@@ -28,13 +27,13 @@ const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactEleme
 };
 
 const RoleBasedHome = () => {
-  const { isAuthenticated, user, loading } = useAuth();
+  const { isAuthenticated, loading } = useAuth();
   const onboardingCompleted = localStorage.getItem('onboarding_completed') === 'true';
 
   if (loading) return null;
 
   if (!onboardingCompleted) {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/onboarding" replace />;
   }
 
   if (isAuthenticated) {
@@ -44,18 +43,87 @@ const RoleBasedHome = () => {
   return <Navigate to="/login" replace />;
 };
 
+const SplashScreen = () => (
+  <div className="flex flex-col h-screen w-full items-center justify-center bg-slate-900 overflow-hidden relative">
+    {/* Animated background elements */}
+    <div className="absolute top-1/4 -left-20 w-80 h-80 bg-primary/20 rounded-full blur-[100px] animate-pulse" />
+    <div className="absolute bottom-1/4 -right-20 w-80 h-80 bg-emerald-500/10 rounded-full blur-[100px] animate-pulse" style={{ animationDelay: '1s' }} />
+    
+    <div className="relative z-10 flex flex-col items-center">
+      <div className="w-24 h-24 bg-white rounded-[32px] flex items-center justify-center shadow-2xl shadow-primary/20 mb-8 animate-bounce">
+        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-primary"><path d="m13 2-2 10h9l-11 10 2-10H2Z"/></svg>
+      </div>
+      
+      <div className="flex items-center gap-2 mb-2">
+        <h1 className="text-4xl font-black text-white tracking-tighter uppercase">Paddy<span className="text-primary">Nexus</span></h1>
+      </div>
+      <div className="h-1 w-32 bg-white/10 rounded-full overflow-hidden">
+        <div className="h-full bg-primary animate-[shimmer_2s_infinite]" style={{ width: '40%' }} />
+      </div>
+      <p className="mt-6 text-[10px] font-black text-slate-500 uppercase tracking-[0.4em]">AgriNexus Systems • v2.4.0</p>
+    </div>
+
+    <style>{`
+      @keyframes shimmer {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(250%); }
+      }
+    `}</style>
+  </div>
+);
+
 import ErrorBoundary from './components/ErrorBoundary';
 
 function AppContent() {
   const { theme } = useTheme();
+  const { loading } = useAuth();
+  const [showSplash, setShowSplash] = React.useState(true);
+  const lastBackPressTime = React.useRef(0);
   
+  React.useEffect(() => {
+    // 1. Hide native splash after React starts mounting
+    CapSplashScreen.hide().catch(() => {});
+
+    // 2. Control the web-splash duration
+    const timer = setTimeout(() => {
+      setShowSplash(false);
+    }, 2500);
+
+    // 3. Handle System Back Button (Exit only on double click within 3sec)
+    const backButtonListener = CapApp.addListener('backButton', async (data) => {
+      const now = Date.now();
+      if (now - lastBackPressTime.current < 3000) {
+        CapApp.exitApp();
+      } else {
+        lastBackPressTime.current = now;
+        Toast.show({
+          text: 'Press back again to exit',
+          duration: 'short',
+          position: 'center'
+        }).catch(() => {});
+      }
+    });
+
+    return () => {
+      clearTimeout(timer);
+      backButtonListener.then(l => l.remove());
+    };
+  }, []);
+
+  if (showSplash || loading) {
+    return <SplashScreen />;
+  }
+
   return (
     <ErrorBoundary>
       <div className={`h-screen w-full transition-colors duration-300 font-sans ${theme === 'dark' ? 'dark bg-background-dark text-white' : 'bg-[#f8fafc] text-slate-900'}`}>
-        <Suspense fallback={<div className="flex h-full items-center justify-center bg-background-light dark:bg-background-dark"><div className="h-10 w-10 animate-spin rounded-full border-4 border-primary border-t-transparent" /></div>}>
+        <Suspense fallback={<SplashScreen />}>
           <Routes>
-            {/* Public Routes */}
-            <Route path="/" element={<Lazy.Onboarding />} />
+            {/* Root Route: Shows Onboarding only once */}
+            <Route path="/" element={<RoleBasedHome />} />
+
+            <Route path="/onboarding" element={<Lazy.Onboarding />} />
+
             <Route path="/login" element={
               localStorage.getItem('app_user') ? <Navigate to="/dashboard" replace /> : <Lazy.Login />
             } />

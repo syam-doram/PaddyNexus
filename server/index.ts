@@ -36,7 +36,7 @@ app.post('/api/auth/register', (req, res) => {
     // Removed single trader restriction to allow multiple traders
     const insert = db.prepare('INSERT INTO users (name, mobile, password, location, role, commission_rate, trader_id) VALUES (?, ?, ?, ?, ?, 0, ?)');
     const result = insert.run(name, mobile, password, location, role, traderId || null);
-    const user = { id: result.lastInsertRowid, name, mobile, location, role, password, commission_rate: 0, trader_id: traderId || null };
+    const user = { id: result.lastInsertRowid, name, mobile, location, role, password, commission_rate: 0, trader_id: traderId || null, image: null };
     res.json({ user });
   } catch (error: any) {
     if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
@@ -82,7 +82,7 @@ app.post('/api/auth/login', (req, res) => {
 
   try {
     // First, find the user by mobile and password only to check their master role
-    const userRow = db.prepare('SELECT id, name, mobile, location, role, password, commission_rate, trader_id FROM users WHERE mobile = ? AND password = ?').get(mobile, password) as any;
+    const userRow = db.prepare('SELECT id, name, mobile, location, role, password, commission_rate, trader_id, image FROM users WHERE mobile = ? AND password = ?').get(mobile, password) as any;
     
     if (userRow) {
       // If user is a trader, they can log in as any role. 
@@ -123,6 +123,21 @@ app.post('/api/auth/change-password', (req, res) => {
     res.json({ success: true, message: 'Password changed successfully' });
   } catch (error) {
     console.error("Database error (change-password):", error);
+    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message });
+  }
+});
+
+app.post('/api/auth/update-photo', (req, res) => {
+  const { userId, image } = req.body;
+  if (!userId || !image) {
+    return res.status(400).json({ error: 'userId and image are required' });
+  }
+
+  try {
+    db.prepare('UPDATE users SET image = ? WHERE id = ?').run(image, userId);
+    res.json({ success: true, message: 'Profile photo updated' });
+  } catch (error) {
+    console.error("Database error (update-photo):", error);
     res.status(500).json({ error: 'Internal Server Error', message: (error as any).message });
   }
 });
@@ -509,10 +524,16 @@ app.get('/api/lots/:id', (req, res) => {
   const { id } = req.params;
   try {
     const lot = db.prepare(`
-      SELECT l.*, lg.name as labour_group_name 
+      SELECT 
+        l.*, 
+        lg.name as labour_group_name,
+        COALESCE(SUM(b.bags), 0) as bags,
+        COALESCE(AVG(b.weight), 0) as avg_bag_weight
       FROM lots l 
       LEFT JOIN labour_groups lg ON l.labour_group_id = lg.id 
+      LEFT JOIN batches b ON l.id = b.lotId
       WHERE l.id = ?
+      GROUP BY l.id
     `).get(id);
     if (!lot) {
       return res.status(404).json({ error: 'Lot not found' });
@@ -844,8 +865,8 @@ app.get('/api/trader/earnings-summary', (req, res) => {
       params.push(traderId);
     }
     if (status && status !== 'All Status') {
-       if (status === 'Completed') conditions.push("l.stage = 'PAID'");
-       else if (status === 'Processing') conditions.push("l.stage != 'PAID'");
+       if (status === 'Completed') conditions.push("l.stage = 'SETTLED'");
+       else if (status === 'Processing') conditions.push("l.stage != 'SETTLED'");
     }
 
     const whereClause = conditions.join(" AND ");
@@ -907,7 +928,7 @@ app.get('/api/trader/earnings-summary', (req, res) => {
         tonnage: row.lotWeight || '0 T',
         destination: row.mill || 'Direct Sale',
         value: earning,
-        status: row.stage === 'PAID' ? 'COMPLETED' : 'PROCESSING'
+        status: row.stage === 'SETTLED' ? 'COMPLETED' : 'PROCESSING'
       };
     }).sort((a, b) => b.value - a.value);
 

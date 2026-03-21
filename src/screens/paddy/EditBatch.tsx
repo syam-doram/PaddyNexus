@@ -21,7 +21,8 @@ import {
   Scale,
   AlertCircle,
   Check,
-  ShieldCheck
+  ShieldCheck,
+  Plus
 } from 'lucide-react';
 
 export default function EditBatch() {
@@ -33,14 +34,15 @@ export default function EditBatch() {
 
   React.useEffect(() => {
     if (lot?.id) {
+        const traderId = user?.trader_id || user?.id;
         let url = `${API_BASE_URL}/lots/${encodeURIComponent(lot.id)}`;
-        if (user?.id) url += `?traderId=${user.id}`;
+        if (traderId) url += `?traderId=${traderId}`;
         fetch(url)
             .then(res => res.json())
             .then(data => setLot(data))
             .catch(err => console.error("Error fetching lot details:", err));
     }
-  }, [lot?.id]);
+  }, [lot?.id, user]);
 
   const isDelivered = lot?.stage && !['LOADING', 'LOADED', 'IN TRANSIT'].includes(lot.stage.toUpperCase());
 
@@ -69,20 +71,21 @@ export default function EditBatch() {
   const [selectedLabourGroupId, setSelectedLabourGroupId] = useState(lot?.labour_group_id || '');
 
   React.useEffect(() => {
+    const traderId = user?.trader_id || user?.id;
     let ptUrl = `${API_BASE_URL}/paddy-types`;
-    if (user?.id) ptUrl += `?traderId=${user.id}`;
+    if (traderId) ptUrl += `?traderId=${traderId}`;
     fetch(ptUrl)
       .then(res => res.json())
       .then(data => setExistingPaddyTypes(data))
       .catch(err => console.error("Error fetching paddy types:", err));
 
     let lgUrl = `${API_BASE_URL}/labour-groups`;
-    if (user?.id) lgUrl += `?traderId=${user.id}`;
+    if (traderId) lgUrl += `?traderId=${traderId}`;
     fetch(lgUrl)
       .then(res => res.json())
       .then(data => setLabourGroups(data))
       .catch(err => console.error("Error fetching labour groups:", err));
-  }, [user?.id]);
+  }, [user]);
 
   const IconMap: any = {
     green: { icon: Sprout, bg: 'bg-green-500/10', text: 'text-green-500', label: 'Optimum Yield' },
@@ -167,58 +170,57 @@ export default function EditBatch() {
       <div className="mx-auto w-full max-w-[1400px] flex flex-col h-full relative">
         
         {/* Header */}
-        <header className="sticky top-0 z-50 bg-white/80 dark:bg-[#0F172A]/80 backdrop-blur-xl border-b border-slate-200 dark:border-white/5 px-6 lg:px-12 py-6 flex items-center justify-between shrink-0">
-          <div className="flex items-center gap-6">
+        <header className="sticky top-0 z-50 bg-white/80 dark:bg-[#0F172A]/80 backdrop-blur-xl border-b border-slate-200 dark:border-white/5 px-4 lg:px-12 py-4 flex items-center justify-between shrink-0">
+          <div className="flex items-center gap-3 lg:gap-6 flex-1 min-w-0">
             <button
               onClick={() => navigate(-1)}
-              className="group flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:bg-primary hover:text-background-dark transition-all"
+              className="group flex h-10 w-10 lg:h-12 lg:w-12 items-center justify-center rounded-xl lg:rounded-2xl bg-slate-100 dark:bg-white/5 text-slate-600 dark:text-slate-400 hover:bg-primary hover:text-background-dark transition-all shrink-0"
             >
-              <ArrowLeft className="w-6 h-6 group-hover:-translate-x-1 transition-transform" />
+              <ArrowLeft className="w-5 h-5 lg:w-6 h-6 group-hover:-translate-x-1 transition-transform" />
             </button>
-            <div>
-              <h1 className="text-3xl font-black tracking-tighter text-slate-900 dark:text-white uppercase italic">
-                {isEditing ? 'Configure Batch' : 'Deploy New Batch'}
+            <div className="truncate">
+              <h1 className="text-lg lg:text-3xl font-[1000] tracking-tighter text-slate-900 dark:text-white uppercase italic truncate">
+                {isEditing ? 'Configure Batch' : 'New Batch'}
               </h1>
-              <div className="flex items-center gap-2 text-[10px] font-bold text-slate-400 mt-1 uppercase tracking-widest">
-                <span className="text-primary italic">Manifest Context:</span>
-                <span className="bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded text-slate-500">{lot.id}</span>
+              <div className="flex items-center gap-1.5 text-[7px] lg:text-[10px] font-bold text-slate-400 mt-0.5 lg:mt-1 uppercase tracking-widest truncate">
+                <span className="text-primary italic">LOT:</span>
+                <span className="bg-slate-100 dark:bg-white/5 px-1.5 py-0.5 rounded text-slate-500">{lot.id}</span>
                 {lot.labour_group_name && (
-                  <>
-                    <span className="text-slate-300 mx-1">•</span>
-                    <span className="text-primary italic">Labour Group:</span>
-                    <span className="bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded text-slate-500">{lot.labour_group_name}</span>
-                  </>
+                  <span className="text-slate-500 truncate ml-1">{lot.labour_group_name}</span>
                 )}
               </div>
             </div>
           </div>
 
-          {isDelivered ? (
-            <div className="flex items-center gap-3 px-6 py-3 bg-slate-100 dark:bg-white/5 text-slate-400 rounded-2xl text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-white/10">
-              <ShieldCheck className="w-4 h-4 text-primary" />
-              Manifest Delivered & Locked
-            </div>
-          ) : (
-            <button
-                onClick={handleSave}
-                className="hidden md:flex items-center gap-3 px-8 py-4 bg-primary text-background-dark rounded-2xl text-[11px] font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 transition-all"
-              >
-                  <Save className="w-4 h-4" />
-                  Commit Configuration
-              </button>
-          )}
+          <div className="flex items-center gap-2">
+            {!isDelivered ? (
+              <button
+                  onClick={handleSave}
+                  className="flex items-center gap-2 px-3 lg:px-8 py-2.5 lg:py-4 bg-primary text-background-dark rounded-xl lg:rounded-2xl text-[9px] lg:text-[11px] font-black uppercase tracking-widest shadow-lg shadow-primary/20 hover:scale-105 active:scale-95 transition-all"
+                >
+                    <Save className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Commit Configuration</span>
+                    <span className="sm:hidden">Commit</span>
+                </button>
+            ) : (
+              <div className="flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-white/5 text-slate-400 rounded-xl text-[9px] font-black uppercase tracking-widest border border-slate-200 dark:border-white/10 shrink-0">
+                <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+                <span className="hidden sm:inline">Manifest Locked</span>
+                <span className="sm:hidden">Locked</span>
+              </div>
+            )}
+          </div>
         </header>
-
-        <main className="flex-1 p-4 lg:p-8 pb-32 lg:pb-8 overflow-y-auto no-scrollbar">
-            <div className="max-w-3xl mx-auto w-full space-y-8">
+        <main className="flex-1 p-3 lg:p-8 pb-32 lg:pb-8 overflow-y-auto no-scrollbar">
+            <div className="max-w-2xl mx-auto w-full space-y-4 lg:space-y-6">
                 
                 {/* Identification & Status */}
-                <div className="space-y-6">
+                <div className="space-y-4">
                     {isDelivered && (
-                        <div className="bg-primary/5 border border-primary/20 rounded-2xl p-4 flex items-start gap-3 shadow-sm">
-                            <Info className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed">
-                                This manifest has been officially delivered. Modifying payload specifications or deploying new batches is restricted to maintain supply chain data integrity.
+                        <div className="bg-primary/5 border border-primary/20 rounded-xl p-3 flex items-start gap-3 shadow-sm">
+                            <Info className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+                            <p className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-relaxed">
+                                This manifest has been officially delivered. Modifying payload specifications is restricted.
                             </p>
                         </div>
                     )}
@@ -228,32 +230,35 @@ export default function EditBatch() {
                                 initial={{ opacity: 0, height: 0 }} 
                                 animate={{ opacity: 1, height: 'auto' }} 
                                 exit={{ opacity: 0, height: 0 }} 
-                                className="bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-2xl p-4 flex items-start gap-3 shadow-sm"
+                                className="bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/20 rounded-xl p-3 flex items-start gap-3 shadow-sm"
                             >
-                                <AlertCircle className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
-                                <p className="text-[10px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-widest leading-relaxed">
+                                <AlertCircle className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                                <p className="text-[9px] font-bold text-rose-600 dark:text-rose-400 uppercase tracking-widest leading-relaxed">
                                     {validationError}
                                 </p>
                             </motion.div>
                         )}
                     </AnimatePresence>
 
-                    <section className="bg-white dark:bg-surface-dark rounded-[32px] p-6 shadow-2xl shadow-black/5 border border-slate-100 dark:border-white/5 relative overflow-hidden group">
-                        <div className="absolute top-0 right-0 p-8">
-                            <div className={`w-16 h-16 rounded-[28px] flex items-center justify-center ${statusConfig.bg} ${statusConfig.text} border border-current opacity-20 group-hover:opacity-100 transition-all duration-500`}>
-                                <StatusIcon className="w-8 h-8" />
+                    <section className="bg-white dark:bg-surface-dark rounded-[24px] lg:rounded-[32px] p-5 lg:p-6 shadow-xl shadow-black/5 border border-slate-100 dark:border-white/5 relative overflow-hidden group space-y-6">
+                        {/* Status Ribbon */}
+                        <div className="flex items-center justify-between">
+                            <span className={`text-[9px] font-black uppercase tracking-[0.2em] px-2.5 py-1 rounded-full ${statusConfig.bg} ${statusConfig.text}`}>
+                                {statusConfig.label}
+                            </span>
+                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${statusConfig.bg} ${statusConfig.text} border border-current opacity-20`}>
+                                <StatusIcon className="w-5 h-5" />
                             </div>
                         </div>
 
-                        <div className="relative z-10 space-y-8">
-                            <div className="space-y-4">
-                                <span className={`text-[10px] font-black uppercase tracking-[0.2em] px-3 py-1 rounded-full ${statusConfig.bg} ${statusConfig.text}`}>
-                                    {statusConfig.label}
-                                </span>
-                                <div className="mt-4">
-                                    <label className="text-[10px] font-black text-primary uppercase tracking-widest block ml-1 mb-2 flex items-center gap-1">
-                                        Farmer Identification <span className="text-rose-500">*</span>
-                                    </label>
+                        {/* Farmer Identification Section */}
+                        <div className="space-y-4">
+                            <div className="mt-2">
+                                <label className="text-[9px] font-black text-primary uppercase tracking-widest block ml-1 mb-1.5 flex items-center gap-1">
+                                    Farmer Identification <span className="text-rose-500">*</span>
+                                </label>
+                                <div className="relative">
+                                    <User className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors ${errorFields.includes('name') ? 'text-rose-500' : 'text-slate-300'}`} />
                                     <input
                                         type="text"
                                         value={name}
@@ -261,16 +266,16 @@ export default function EditBatch() {
                                             setName(e.target.value);
                                             if (e.target.value) setErrorFields(prev => prev.filter(f => f !== 'name'));
                                         }}
-                                        className={`w-full bg-transparent border-none p-0 text-2xl lg:text-3xl font-black uppercase italic tracking-tighter focus:ring-0 placeholder:text-slate-100 dark:placeholder:text-slate-900 transition-colors ${errorFields.includes('name') ? 'text-rose-500' : 'text-slate-900 dark:text-white'}`}
+                                        className={`w-full bg-slate-100 dark:bg-white/5 border-none rounded-xl pl-12 pr-6 py-4 text-xl lg:text-3xl font-black uppercase italic tracking-tighter focus:ring-2 focus:ring-primary/40 placeholder:text-slate-200 dark:placeholder:text-slate-800 transition-colors ${errorFields.includes('name') ? 'text-rose-500' : 'text-slate-900 dark:text-white'}`}
                                         placeholder="Farmer Name"
                                     />
                                 </div>
                             </div>
 
-                            <div className="pt-8 border-t border-slate-50 dark:border-white/5 space-y-6">
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1 flex items-center gap-1">
-                                        Paddy Morph Grade <span className="text-rose-500">*</span>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-slate-50 dark:border-white/5">
+                                <div className="space-y-1.5">
+                                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block ml-1 flex items-center gap-1">
+                                        Paddy Grade <span className="text-rose-500">*</span>
                                     </label>
                                     <div className="relative">
                                         <Sprout className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors ${errorFields.includes('paddyType') ? 'text-rose-500' : 'text-slate-300'}`} />
@@ -283,7 +288,7 @@ export default function EditBatch() {
                                                 if (e.target.value) setErrorFields(prev => prev.filter(f => f !== 'paddyType'));
                                             }}
                                             placeholder="e.g. Basmati 1121"
-                                            className={`w-full bg-slate-50 dark:bg-slate-900/50 rounded-xl pl-12 pr-6 py-3 text-sm font-black transition-all border ${errorFields.includes('paddyType') ? 'border-rose-500 animate-pulse ring-2 ring-rose-500/20' : 'border-none focus:ring-2 focus:ring-primary/40'}`}
+                                            className={`w-full bg-slate-100 dark:bg-white/5 rounded-xl pl-12 pr-4 py-4 text-xs font-black transition-all border ${errorFields.includes('paddyType') ? 'border-rose-500 ring-2 ring-rose-500/20' : 'border-none focus:ring-2 focus:ring-primary/40'}`}
                                         />
                                         <datalist id="paddy-types">
                                             {existingPaddyTypes.map(type => (
@@ -293,9 +298,9 @@ export default function EditBatch() {
                                     </div>
                                 </div>
 
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1 flex items-center gap-1">
-                                        Secure Contact Uplink <span className="text-rose-500">*</span>
+                                <div className="space-y-1.5">
+                                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block ml-1 flex items-center gap-1">
+                                        Contact Number <span className="text-rose-500">*</span>
                                     </label>
                                     <div className="relative">
                                         <Phone className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors ${errorFields.includes('mobile') ? 'text-rose-500' : 'text-slate-300'}`} />
@@ -308,178 +313,168 @@ export default function EditBatch() {
                                                 if (val) setErrorFields(prev => prev.filter(f => f !== 'mobile'));
                                             }}
                                             placeholder="Mobile Network ID"
-                                            className={`w-full bg-slate-50 dark:bg-slate-900/50 rounded-xl pl-12 pr-6 py-3 text-sm font-black transition-all border ${errorFields.includes('mobile') ? 'border-rose-500 animate-pulse ring-2 ring-rose-500/20' : 'border-none focus:ring-2 focus:ring-primary/40'}`}
+                                            className={`w-full bg-slate-100 dark:bg-white/5 rounded-xl pl-12 pr-4 py-4 text-xs font-black transition-all border ${errorFields.includes('mobile') ? 'border-rose-500 ring-2 ring-rose-500/20' : 'border-none focus:ring-2 focus:ring-primary/40'}`}
                                         />
                                     </div>
                                 </div>
                             </div>
                         </div>
-                    </section>
 
-                    <section className="bg-white dark:bg-surface-dark rounded-[32px] p-6 lg:p-8 shadow-2xl shadow-black/5 border border-slate-100 dark:border-white/5 relative overflow-hidden group">
-                         <div className="relative z-10">
-                            <div className="flex items-center gap-4 mb-8">
-                                <div className="w-12 h-12 bg-slate-500/10 rounded-2xl flex items-center justify-center border border-slate-500/20">
-                                    <TrendingUp className="w-6 h-6 text-slate-500" />
+                        {/* Combined Metrics Card Area */}
+                        <div className="space-y-4 pt-6 border-t border-slate-100 dark:border-white/5">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {/* Quantity Metrics Section */}
+                                <div className="bg-slate-50 dark:bg-white/5 p-5 rounded-[24px] border border-slate-100 dark:border-white/5 space-y-4">
+                                    <div className="flex items-center gap-3">
+                                        <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center">
+                                            <ShoppingBag className="w-4 h-4 text-primary" />
+                                        </div>
+                                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                                            Quantity Metrics <span className="text-rose-500">*</span>
+                                        </h3>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="relative">
+                                            <ShoppingBag className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors ${errorFields.includes('bags') ? 'text-rose-500' : 'text-slate-300'}`} />
+                                            <input 
+                                                type="number"
+                                                value={bags}
+                                                onChange={(e) => {
+                                                    setBags(e.target.value);
+                                                    if (e.target.value) setErrorFields(prev => prev.filter(f => f !== 'bags'));
+                                                }}
+                                                className={`w-full bg-slate-100 dark:bg-white/5 border-none rounded-xl pl-10 pr-4 py-3.5 text-[14px] font-black italic transition-all border ${errorFields.includes('bags') ? 'border-rose-500 text-rose-500 ring-2 ring-rose-500/20' : 'border-none text-slate-900 dark:text-white focus:ring-2 focus:ring-primary/40'}`}
+                                                placeholder="Bags"
+                                            />
+                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[7px] font-black text-slate-300 uppercase tracking-widest">PCS</span>
+                                        </div>
+                                        <div className="relative">
+                                            <Scale className={`absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 transition-colors ${errorFields.includes('weight') ? 'text-rose-500' : 'text-slate-300'}`} />
+                                            <input 
+                                                type="number"
+                                                value={weight}
+                                                onChange={(e) => {
+                                                    setWeight(e.target.value);
+                                                    if (e.target.value) setErrorFields(prev => prev.filter(f => f !== 'weight'));
+                                                }}
+                                                className={`w-full bg-slate-100 dark:bg-white/5 border-none rounded-xl pl-10 pr-4 py-3.5 text-[14px] font-black italic transition-all border ${errorFields.includes('weight') ? 'border-rose-500 text-rose-500 ring-2 ring-rose-500/20' : 'border-none text-slate-900 dark:text-white focus:ring-2 focus:ring-primary/40'}`}
+                                                placeholder="Kg"
+                                            />
+                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[7px] font-black text-slate-300 uppercase tracking-widest">KG</span>
+                                        </div>
+                                    </div>
                                 </div>
-                                <h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.2em]">Fiscal Bonus Structures</h3>
-                            </div>
 
-                            <div className="space-y-2">
-                                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">Labour Gratuity (Fixed)</label>
-                                <div className="flex items-center gap-5">
-                                    <span className="text-3xl font-black text-slate-400 italic">₹</span>
-                                    <input 
-                                        type="number"
-                                        value={labourGratuity}
-                                        onChange={(e) => setLabourGratuity(e.target.value)}
-                                        className="bg-transparent border-none p-0 text-4xl font-black text-slate-900 dark:text-white italic focus:ring-0 w-full placeholder:text-slate-200"
-                                        placeholder="0"
-                                    />
+                                {/* Hydro Calibration Section */}
+                                <div className="bg-slate-50 dark:bg-white/5 p-5 rounded-[24px] border border-slate-100 dark:border-white/5 space-y-4">
+                                     <div className="flex items-center gap-3 w-full">
+                                        <div className="w-8 h-8 bg-blue-500/10 rounded-lg flex items-center justify-center">
+                                            <Droplet className="w-4 h-4 text-blue-500" />
+                                        </div>
+                                        <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1">
+                                            Hydro Calibration <span className="text-rose-500">*</span>
+                                        </h3>
+                                    </div>
+                                    <div className="relative w-full">
+                                        <Droplet className={`absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors ${errorFields.includes('moisture') ? 'text-rose-500' : 'text-slate-300'}`} />
+                                        <input 
+                                            type="number"
+                                            value={moisture}
+                                            onChange={(e) => {
+                                                setMoisture(e.target.value);
+                                                if (e.target.value) setErrorFields(prev => prev.filter(f => f !== 'moisture'));
+                                            }}
+                                            className={`w-full bg-slate-100 dark:bg-white/5 border-none rounded-xl pl-12 pr-12 py-4 text-xl font-black italic transition-all border ${errorFields.includes('moisture') ? 'border-rose-500 text-rose-500 ring-2 ring-rose-500/20' : 'border-none text-blue-500 focus:ring-2 focus:ring-blue-500/40'}`}
+                                            placeholder="Moisture %"
+                                        />
+                                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[7px] font-black text-slate-300 uppercase tracking-widest">% MC</span>
+                                    </div>
                                 </div>
                             </div>
-                         </div>
-                         <div className="absolute -right-20 -bottom-20 w-64 h-64 bg-slate-500/5 rounded-full blur-[100px]" />
-                    </section>
 
-                    <section className="bg-white dark:bg-surface-dark rounded-[32px] p-6 lg:p-8 shadow-2xl shadow-black/5 border border-slate-100 dark:border-white/5 space-y-6">
-                        <div className="flex items-center gap-4">
-                            <div className="w-12 h-12 bg-indigo-500/10 rounded-2xl flex items-center justify-center border border-indigo-500/20">
-                                <User className="w-6 h-6 text-indigo-500" />
+                            {/* Labour Coordination & Gratuity Section */}
+                            <div className="bg-slate-50 dark:bg-white/5 p-5 rounded-[24px] border border-slate-100 dark:border-white/5 space-y-4">
+                                <div className="flex items-center gap-3">
+                                    <div className="w-10 h-10 bg-indigo-500/10 rounded-xl flex items-center justify-center">
+                                        <User className="w-5 h-5 text-indigo-500" />
+                                    </div>
+                                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Labour Coordination</h3>
+                                </div>
+                                <div className="space-y-4">
+                                    <div className="relative">
+                                        <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 z-10" />
+                                        <select 
+                                            value={selectedLabourGroupId}
+                                            onChange={(e) => setSelectedLabourGroupId(e.target.value)}
+                                            className="w-full bg-slate-100 dark:bg-white/5 border-none rounded-xl pl-12 pr-8 py-4 text-xs font-black focus:ring-2 focus:ring-indigo-500/40 transition-all appearance-none relative"
+                                        >
+                                            <option value="">No Group Assigned</option>
+                                            {labourGroups.map(g => (
+                                                <option key={g.id} value={g.id}>{g.name}</option>
+                                            ))}
+                                        </select>
+                                        <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 rotate-90 pointer-events-none" />
+                                    </div>
+
+                                    <div className="relative flex items-center bg-slate-100 dark:bg-white/5 px-4 py-4 rounded-xl border-t border-slate-50 dark:border-white/5">
+                                        <div className="flex items-center gap-2 flex-1">
+                                            <TrendingUp className="w-4 h-4 text-indigo-500" />
+                                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Gratuity (₹)</span>
+                                        </div>
+                                        <div className="flex items-center bg-white/40 dark:bg-black/20 px-4 py-2 rounded-lg border border-slate-100 dark:border-white/5">
+                                            <IndianRupee className="w-3.5 h-3.5 text-slate-400 mr-2" />
+                                            <input 
+                                                type="number"
+                                                value={labourGratuity}
+                                                onChange={(e) => setLabourGratuity(e.target.value)}
+                                                className="bg-transparent border-none p-0 text-base font-black text-slate-900 dark:text-white italic focus:ring-0 w-24 text-right"
+                                                placeholder="0"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
-                            <h3 className="text-sm font-black text-slate-400 uppercase tracking-[0.2em]">Labour Coordination</h3>
-                        </div>
+                            {/* Liquidity and Baseline Section */}
+                            <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block ml-2">Liquidity</label>
+                                    <div className="flex bg-white dark:bg-slate-900/50 p-1 rounded-xl gap-1">
+                                        {['Spot Cash', 'Barrow'].map(type => (
+                                            <button
+                                                key={type}
+                                                onClick={() => setAmountType(type)}
+                                                className={`flex-1 py-2 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all ${amountType === type ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm' : 'text-slate-400'}`}
+                                            >
+                                                {type}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
 
-                        <div className="space-y-4">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-1">Assigned Labour Group</label>
-                            <div className="relative">
-                                <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 z-10" />
-                                <select 
-                                    value={selectedLabourGroupId}
-                                    onChange={(e) => setSelectedLabourGroupId(e.target.value)}
-                                    className="w-full bg-slate-50 dark:bg-slate-900/50 border-none rounded-xl pl-12 pr-10 py-3.5 text-sm font-black focus:ring-2 focus:ring-indigo-500/40 transition-all appearance-none relative"
-                                >
-                                    <option value="">No Group Assigned</option>
-                                    {labourGroups.map(g => (
-                                        <option key={g.id} value={g.id}>{g.name}</option>
-                                    ))}
-                                </select>
-                                <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 rotate-90 pointer-events-none" />
+                                <div className="space-y-2">
+                                    <label className="text-[9px] font-black text-slate-400 uppercase tracking-widest block ml-2">Baseline</label>
+                                    <div className="flex bg-white dark:bg-slate-900/50 p-1 rounded-xl gap-1">
+                                        {['Dry Paddy', 'Wet Paddy'].map(type => (
+                                            <button
+                                                key={type}
+                                                onClick={() => setMoistureType(type)}
+                                                className={`flex-1 py-2 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all ${moistureType === type ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-white shadow-sm' : 'text-slate-400'}`}
+                                            >
+                                                {type}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </section>
                 </div>
-                
-                {/* Payload Specs & Conditions */}
-                <div className="space-y-8">
-                     <section className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <div className="bg-white dark:bg-surface-dark rounded-[32px] p-6 shadow-2xl shadow-black/5 border border-slate-100 dark:border-white/5 space-y-4">
-                            <div className="flex items-center gap-4">
-                                <div className="w-12 h-12 bg-primary/10 rounded-2xl flex items-center justify-center">
-                                    <ShoppingBag className="w-6 h-6 text-primary" />
-                                </div>
-                                <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-1">
-                                    Quantity Metrics <span className="text-rose-500">*</span>
-                                </h3>
-                            </div>
-                            <div className="space-y-4">
-                                <div className="relative">
-                                    <input 
-                                        type="number"
-                                        value={bags}
-                                        onChange={(e) => {
-                                            setBags(e.target.value);
-                                            if (e.target.value) setErrorFields(prev => prev.filter(f => f !== 'bags'));
-                                        }}
-                                        className={`w-full bg-slate-50 dark:bg-slate-900/50 rounded-xl px-4 py-4 text-3xl font-black italic transition-all text-center border ${errorFields.includes('bags') ? 'border-rose-500 text-rose-500 ring-2 ring-rose-500/20' : 'border-none text-slate-900 dark:text-white focus:ring-2 focus:ring-primary/40'}`}
-                                        placeholder="000"
-                                    />
-                                    <span className="absolute right-6 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-300 uppercase tracking-[0.3em]">Total Bags</span>
-                                </div>
-                                <div className="relative">
-                                    <Scale className={`absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 transition-colors ${errorFields.includes('weight') ? 'text-rose-500' : 'text-slate-300'}`} />
-                                    <input 
-                                        type="number"
-                                        value={weight}
-                                        onChange={(e) => {
-                                            setWeight(e.target.value);
-                                            if (e.target.value) setErrorFields(prev => prev.filter(f => f !== 'weight'));
-                                        }}
-                                        className={`w-full bg-slate-50 dark:bg-slate-900/50 rounded-xl pl-16 pr-6 py-3.5 text-lg font-black italic transition-all border ${errorFields.includes('weight') ? 'border-rose-500 text-rose-500 ring-2 ring-rose-500/20' : 'border-none text-slate-900 dark:text-white focus:ring-2 focus:ring-primary/40'}`}
-                                        placeholder="00.0"
-                                    />
-                                    <span className="absolute right-6 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-300 uppercase tracking-[0.3em]">KG PER BAG</span>
-                                </div>
-                            </div>
-                        </div>
 
-                        <div className="bg-white dark:bg-surface-dark rounded-[32px] p-6 shadow-2xl shadow-black/5 border border-slate-100 dark:border-white/5 space-y-4 text-center">
-                             <div className="flex items-center justify-center gap-4">
-                                <div className="w-12 h-12 bg-blue-500/10 rounded-2xl flex items-center justify-center">
-                                    <Droplet className="w-6 h-6 text-blue-500" />
-                                </div>
-                                <h3 className="text-[11px] font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-1">
-                                    Hydro Calibration <span className="text-rose-500">*</span>
-                                </h3>
-                            </div>
-                            <div className="relative">
-                                <input 
-                                    type="number"
-                                    value={moisture}
-                                    onChange={(e) => {
-                                        setMoisture(e.target.value);
-                                        if (e.target.value) setErrorFields(prev => prev.filter(f => f !== 'moisture'));
-                                    }}
-                                    className={`w-full bg-slate-50 dark:bg-slate-900/50 rounded-xl px-4 py-8 text-4xl font-black italic transition-all text-center border ${errorFields.includes('moisture') ? 'border-rose-500 text-rose-500 ring-2 ring-rose-500/20' : 'border-none text-blue-500 focus:ring-2 focus:ring-blue-500/40'}`}
-                                    placeholder="00.0"
-                                />
-                                <span className="absolute bottom-6 left-1/2 -translate-x-1/2 text-[10px] font-black text-slate-300 uppercase tracking-[0.5em]">PERCENTAGE MOISTURE</span>
-                            </div>
-                        </div>
-                     </section>
-
-                     <section className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                        <div className="space-y-4">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-2">Market Liquidity Type</label>
-                            <div className="flex bg-slate-100 dark:bg-white/5 p-1 rounded-2xl gap-1">
-                                {['Spot Cash', 'Barrow'].map(type => (
-                                    <button
-                                        key={type}
-                                        onClick={() => setAmountType(type)}
-                                        className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${amountType === type ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
-                                    >
-                                        {type}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="space-y-4">
-                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest block ml-2">Moisture Baseline</label>
-                            <div className="flex bg-slate-100 dark:bg-white/5 p-1 rounded-2xl gap-1">
-                                {['Dry Paddy', 'Wet Paddy'].map(type => (
-                                    <button
-                                        key={type}
-                                        onClick={() => setMoistureType(type)}
-                                        className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300 ${moistureType === type ? 'bg-white dark:bg-slate-800 text-slate-900 dark:text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
-                                    >
-                                        {type}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                     </section>
-
-                     <div className="bg-primary/5 border border-primary/20 rounded-[32px] p-6 flex items-start gap-4">
-                        <Info className="w-10 h-10 text-primary shrink-0" />
-                        <div>
-                            <h4 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-widest mb-2">Automated Calibration Active</h4>
-                            <p className="text-xs text-slate-500 font-bold leading-relaxed">
-                                Our sensory suite automatically maps moisture content to yield predictions. 
-                                Dry paddy ({"<"}14%) triggers immediate premium classification.
-                            </p>
-                        </div>
-                     </div>
+                <div className="bg-primary/5 border border-primary/20 rounded-[24px] p-4 flex items-start gap-3">
+                    <Info className="w-5 h-5 text-primary shrink-0" />
+                    <p className="text-[9px] text-slate-500 font-bold leading-relaxed uppercase tracking-widest">
+                        Automated Calibration Active: Dry paddy (less than 14%) triggers immediate premium classification.
+                    </p>
                 </div>
             </div>
         </main>

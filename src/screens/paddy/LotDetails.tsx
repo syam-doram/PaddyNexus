@@ -105,6 +105,8 @@ export default function LotDetails() {
           return { ...item, ...uiProps };
         });
         setBatches(mappedData);
+        const calcBags = data.reduce((acc: number, curr: any) => acc + (parseInt(curr.bags) || 0), 0);
+        setLot((prev: any) => ({ ...prev, bags: calcBags }));
       })
       .catch(err => console.error("Error fetching batches:", err));
 
@@ -259,27 +261,27 @@ export default function LotDetails() {
         
         {/* Header - Unified with specific Mobile/Web adjustments */}
         <header className="sticky top-0 z-40 bg-white/90 dark:bg-[#0F172A]/90 backdrop-blur-md pt-5 lg:pt-12 flex flex-col border-b border-slate-100 dark:border-white/5 shrink-0 px-4 lg:px-6">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-4 lg:pb-6 gap-4 sm:gap-6">
-            <div className="flex items-center gap-3 lg:gap-4">
-              <button onClick={() => navigate(-1)} className="group p-2.5 lg:p-3 bg-slate-100 dark:bg-white/5 text-slate-400 hover:text-primary rounded-xl lg:rounded-2xl transition-all">
+          <div className="flex items-center justify-between pb-4 lg:pb-6 gap-2">
+            <div className="flex items-center gap-3 lg:gap-4 flex-1">
+              <button onClick={() => navigate(-1)} className="group p-2 bg-slate-100 dark:bg-white/5 text-slate-400 hover:text-primary rounded-xl lg:rounded-2xl transition-all">
                 <ArrowLeft className="w-4 h-4 lg:w-6 lg:h-6" />
               </button>
-              <div>
-                <h1 className="text-xl lg:text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Lot <span className="text-primary">Details</span></h1>
-                <div className="flex items-center gap-1.5 mt-0.5 lg:mt-1">
-                  <span className="text-[8px] lg:text-[10px] font-black px-1.5 py-0.5 bg-primary/10 text-primary rounded uppercase tracking-tighter">LOT: {lot.id}</span>
+              <div className="truncate">
+                <h1 className="text-base lg:text-3xl font-[1000] text-slate-900 dark:text-white uppercase tracking-tighter truncate leading-none">Lot <span className="text-primary">Details</span></h1>
+                <div className="flex items-center gap-1.5 mt-1 lg:mt-2">
+                  <span className="text-[7px] lg:text-[10px] font-black px-1.5 py-0.5 bg-primary/10 text-primary rounded uppercase tracking-tighter">ID: {lot.id}</span>
                 </div>
               </div>
             </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => navigate('/tracking', { state: { lot } })}
-                className="flex items-center gap-2 px-6 py-3 bg-emerald-500 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow-xl shadow-emerald-500/20 hover:scale-105 active:scale-95 transition-all"
-              >
-                <Activity className="w-4 h-4" />
-                <span>Live Tracking</span>
-              </button>
-            </div>
+            
+            <button
+              onClick={() => navigate('/tracking', { state: { lot } })}
+              className="flex items-center gap-1.5 px-3 lg:px-6 py-2.5 lg:py-3 bg-emerald-500 text-white rounded-xl text-[9px] lg:text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 hover:scale-105 active:scale-95 transition-all shrink-0"
+            >
+              <Activity className="w-3.5 h-3.5 lg:w-4 h-4" />
+              <span className="hidden xs:inline">Live Tracking</span>
+              <span className="xs:hidden">Live</span>
+            </button>
           </div>
         </header>
 
@@ -687,19 +689,6 @@ export default function LotDetails() {
 
             </div>
         </main>
-
-        {/* Floating Mobile Action Button (Conditional Rendering) */}
-        {!isDelivered && (
-            <div className="lg:hidden fixed bottom-6 right-6 z-50">
-                <button 
-                    onClick={() => navigate('/edit-batch', { state: { lot } })}
-                    className="w-16 h-16 bg-primary text-background-dark rounded-[24px] shadow-2xl shadow-primary/30 flex items-center justify-center hover:scale-110 active:scale-95 transition-all"
-                >
-                    <Plus className="w-8 h-8" strokeWidth={3} />
-                </button>
-            </div>
-        )}
-
       </div>
     </div>
   );

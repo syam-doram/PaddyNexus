@@ -269,13 +269,19 @@ export default function LabourEntry() {
       {/* Add Group Modal */}
       <AnimatePresence>
         {showAddModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+          <div className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-slate-900/60 backdrop-blur-sm">
             <motion.div 
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
-              className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-[48px] shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+              initial={{ opacity: 0, y: "100%" }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: "100%" }}
+              transition={{ type: "spring", damping: 25, stiffness: 200 }}
+              className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-t-[40px] sm:rounded-[48px] shadow-2xl overflow-hidden flex flex-col h-[92vh] sm:h-auto max-h-[95vh] sm:max-h-[90vh]"
             >
+              {/* Drag Handle for Mobile */}
+              <div className="w-full h-1.5 flex items-center justify-center pt-4 pb-2 sm:hidden">
+                <div className="w-12 h-1 bg-slate-200 dark:bg-slate-800 rounded-full" />
+              </div>
+
               <div className="p-8 border-b border-slate-100 dark:border-white/5 flex items-center justify-between">
                 <div>
                   <h3 className="text-2xl font-black uppercase tracking-tighter">Register <span className="text-primary">Group</span></h3>
@@ -371,7 +377,7 @@ export default function LabourEntry() {
                 </div>
               </div>
 
-              <div className="p-8 border-t border-slate-100 dark:border-white/5">
+              <div className="p-8 pb-12 sm:pb-8 border-t border-slate-100 dark:border-white/5">
                 <button 
                   onClick={handleSubmit}
                   disabled={isSubmitting || !newGroupName}

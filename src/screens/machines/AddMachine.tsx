@@ -7,6 +7,7 @@ import { useMachines, Machine } from '../../context/MachineContext';
 import { useAuth } from '../../context/AuthContext';
 import { API_BASE_URL } from '../../config/apiConfig';
 import Modal from '../../components/common/Modal';
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
 
 interface Operator {
   id: string;
@@ -26,6 +27,7 @@ export default function AddMachine() {
   const [ownerName, setOwnerName] = useState('');
   const [ownerNumber, setOwnerNumber] = useState('');
   const [perHourRate, setPerHourRate] = useState('1200');
+  const [assetImage, setAssetImage] = useState<string | null>(null);
   
   const [operators, setOperators] = useState<Operator[]>([]);
   const [modalConfig, setModalConfig] = useState<{
@@ -90,7 +92,7 @@ export default function AddMachine() {
       acres: '0 Acres',
       operator: operator || 'Not Assigned',
       operatorColor: operator ? 'text-[#00c853]' : 'text-slate-500',
-      image: "", 
+      image: assetImage || "", 
       owner_name: ownerName,
       owner_mobile: ownerNumber,
       per_hour_rate: parseInt(perHourRate) || 1200,
@@ -99,6 +101,22 @@ export default function AddMachine() {
 
     await addMachine(newMachine);
     navigate('/trader/entries');
+  };
+
+  const takePhoto = async () => {
+    try {
+      const image = await Camera.getPhoto({
+        quality: 90,
+        allowEditing: true,
+        resultType: CameraResultType.Uri,
+        source: CameraSource.Prompt // Asks user for Camera or Gallery
+      });
+      if (image.webPath) {
+        setAssetImage(image.webPath);
+      }
+    } catch (err) {
+      console.error("Camera error:", err);
+    }
   };
 
   return (
@@ -134,46 +152,43 @@ export default function AddMachine() {
         <div className="max-w-5xl mx-auto w-full p-4 md:p-6 pb-32">
           <form onSubmit={handleAddMachine} className="grid grid-cols-1 lg:grid-cols-12 gap-8">
               {/* Left Column: Visuals & Core Info */}
-              <div className="lg:col-span-5 space-y-6">
+              <div className="lg:col-span-5 space-y-4 md:space-y-6">
                   <motion.div 
                       initial={{ opacity: 0, scale: 0.95 }}
                       animate={{ opacity: 1, scale: 1 }}
-                      className="relative group aspect-square lg:aspect-auto lg:h-[400px] bg-slate-100 dark:bg-white/5 border-2 border-dashed border-slate-200 dark:border-white/10 rounded-[48px] flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 hover:bg-primary/5 transition-all overflow-hidden"
+                      onClick={takePhoto}
+                      className="relative group aspect-[16/9] lg:aspect-auto lg:h-[400px] bg-slate-100 dark:bg-white/5 border-2 border-dashed border-slate-200 dark:border-white/10 rounded-[32px] md:rounded-[48px] flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 transition-all overflow-hidden"
                   >
-                      <div className="w-20 h-20 bg-primary text-background-dark rounded-[28px] flex items-center justify-center mb-4 shadow-xl shadow-primary/20 group-hover:scale-110 transition-transform">
-                          <Upload className="w-8 h-8" />
-                      </div>
-                      <h3 className="text-lg font-black uppercase tracking-tight">Upload Asset Photo</h3>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">Visual ID Verification</p>
-                      <input type="file" className="absolute inset-0 opacity-0 cursor-pointer" />
+                      {assetImage ? (
+                        <img src={assetImage} alt="Asset" className="w-full h-full object-cover" />
+                      ) : (
+                        <>
+                          <div className="w-16 h-16 md:w-20 md:h-20 bg-primary text-background-dark rounded-[24px] md:rounded-[28px] flex items-center justify-center mb-4 shadow-xl shadow-primary/20 group-hover:scale-110 transition-transform">
+                              <Upload className="w-6 h-6 md:w-8 md:h-8" />
+                          </div>
+                          <h3 className="text-base md:text-lg font-black uppercase tracking-tight">Upload Asset Photo</h3>
+                          <p className="text-[9px] md:text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-2">Visual ID Verification</p>
+                        </>
+                      )}
                   </motion.div>
   
-                  <div className="bg-white dark:bg-surface-dark p-8 rounded-[40px] border border-slate-100 dark:border-white/5 flex items-center gap-6 shadow-sm">
-                      <div className="w-14 h-14 bg-emerald-100 dark:bg-emerald-500/20 rounded-2xl flex items-center justify-center text-emerald-600">
-                          <Plus className="w-7 h-7" />
+                  <div className="bg-white dark:bg-surface-dark p-5 md:p-8 rounded-[32px] md:rounded-[40px] border border-slate-100 dark:border-white/5 flex items-center gap-6 shadow-sm">
+                      <div className="w-12 h-12 md:w-14 md:h-14 bg-emerald-100 dark:bg-emerald-500/20 rounded-2xl flex items-center justify-center text-emerald-600">
+                          <Plus className="w-6 h-6 md:w-7 md:h-7" />
                       </div>
                       <div>
-                          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Registration Date</p>
-                          <p className="text-lg font-black uppercase tracking-tight">
+                          <p className="text-[9px] md:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Registration Date</p>
+                          <p className="text-base md:text-lg font-black uppercase tracking-tight">
                           {new Date(passedDate).toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}
                           </p>
                       </div>
                   </div>
   
-                  <div className="p-8 bg-slate-900 dark:bg-slate-800 rounded-[40px] text-white">
-                      <div className="flex items-center gap-3 mb-6">
-                          <Info className="w-5 h-5 text-primary" />
-                          <h4 className="text-xs font-black uppercase tracking-widest">Fleet Guidelines</h4>
-                      </div>
-                      <p className="text-sm font-medium text-slate-400 leading-relaxed">
-                          Ensure all technical specifications match the physical asset. Registered machines are automatically enrolled in the seasonal maintenance schedule.
-                      </p>
-                  </div>
               </div>
   
               {/* Right Column: Form Fields */}
-              <div className="lg:col-span-7 space-y-8">
-                  <section className="bg-white dark:bg-surface-dark p-6 md:p-10 rounded-[32px] md:rounded-[48px] border border-slate-100 dark:border-white/5 shadow-sm space-y-6 md:space-y-8">
+              <div className="lg:col-span-7 space-y-6 md:space-y-8">
+                  <section className="bg-white dark:bg-surface-dark p-6 md:p-10 rounded-[28px] md:rounded-[48px] border border-slate-100 dark:border-white/5 shadow-sm space-y-6 md:space-y-8">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                           <div className="space-y-3">
                               <label htmlFor="machineName" className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">
@@ -186,7 +201,7 @@ export default function AddMachine() {
                                   value={name}
                                   onChange={e => setName(e.target.value)}
                                   placeholder="e.g. Asset-Alpha"
-                                  className="w-full h-16 px-6 bg-slate-50 dark:bg-white/5 border-2 border-transparent focus:border-primary/30 rounded-[28px] text-[15px] font-black focus:outline-none transition-all"
+                                  className="w-full h-14 md:h-16 px-5 md:px-6 bg-slate-50 dark:bg-white/5 border-2 border-transparent focus:border-primary/30 rounded-2xl md:rounded-[28px] text-[14px] md:text-[15px] font-black focus:outline-none transition-all"
                               />
                           </div>
                           <div className="space-y-3">
@@ -200,7 +215,7 @@ export default function AddMachine() {
                                   value={model}
                                   onChange={e => setModel(e.target.value)}
                                   placeholder="e.g. Industrial Model X"
-                                  className="w-full h-16 px-6 bg-slate-50 dark:bg-white/5 border-2 border-transparent focus:border-primary/30 rounded-[28px] text-[15px] font-black focus:outline-none transition-all"
+                                  className="w-full h-14 md:h-16 px-5 md:px-6 bg-slate-50 dark:bg-white/5 border-2 border-transparent focus:border-primary/30 rounded-2xl md:rounded-[28px] text-[14px] md:text-[15px] font-black focus:outline-none transition-all"
                               />
                           </div>
                       </div>
@@ -217,7 +232,7 @@ export default function AddMachine() {
                                   value={ownerName}
                                   onChange={e => setOwnerName(e.target.value)}
                                   placeholder="Full Name"
-                                  className="w-full h-16 px-6 bg-slate-50 dark:bg-white/5 border-2 border-transparent focus:border-primary/30 rounded-[28px] text-[15px] font-black focus:outline-none transition-all"
+                                  className="w-full h-14 md:h-16 px-5 md:px-6 bg-slate-50 dark:bg-white/5 border-2 border-transparent focus:border-primary/30 rounded-2xl md:rounded-[28px] text-[14px] md:text-[15px] font-black focus:outline-none transition-all"
                               />
                           </div>
                           <div className="space-y-3">
@@ -235,7 +250,7 @@ export default function AddMachine() {
                                   }}
                                   maxLength={10}
                                   placeholder="Phone No."
-                                  className="w-full h-16 px-6 bg-slate-50 dark:bg-white/5 border-2 border-transparent focus:border-primary/30 rounded-[28px] text-[15px] font-black focus:outline-none transition-all"
+                                  className="w-full h-14 md:h-16 px-5 md:px-6 bg-slate-50 dark:bg-white/5 border-2 border-transparent focus:border-primary/30 rounded-2xl md:rounded-[28px] text-[14px] md:text-[15px] font-black focus:outline-none transition-all"
                               />
                           </div>
                       </div>
@@ -252,7 +267,7 @@ export default function AddMachine() {
                                   value={perHourRate}
                                   onChange={e => setPerHourRate(e.target.value)}
                                   placeholder="₹ 1,200"
-                                  className="w-full h-16 px-6 bg-slate-50 dark:bg-white/5 border-2 border-transparent focus:border-emerald-500/30 rounded-[28px] text-2xl font-black text-emerald-600 focus:outline-none transition-all"
+                                  className="w-full h-14 md:h-16 px-5 md:px-6 bg-slate-50 dark:bg-white/5 border-2 border-transparent focus:border-emerald-500/30 rounded-2xl md:rounded-[28px] text-xl md:text-2xl font-black text-emerald-600 focus:outline-none transition-all"
                               />
                           </div>
                           <div className="space-y-3">
@@ -265,7 +280,7 @@ export default function AddMachine() {
                                       name="operatorSelect"
                                       value={operator}
                                       onChange={e => setOperator(e.target.value)}
-                                      className="w-full h-16 px-6 pr-12 bg-slate-50 dark:bg-white/5 border-2 border-transparent focus:border-primary/30 rounded-[28px] text-[15px] font-black focus:outline-none transition-all appearance-none cursor-pointer"
+                                      className="w-full h-14 md:h-16 px-5 md:px-6 pr-12 bg-slate-50 dark:bg-white/5 border-2 border-transparent focus:border-primary/30 rounded-2xl md:rounded-[28px] text-[14px] md:text-[15px] font-black focus:outline-none transition-all appearance-none cursor-pointer"
                                   >
                                       <option value="" disabled hidden>Select Operator</option>
                                       <option value="Not Assigned">Standby Mode</option>
@@ -281,11 +296,21 @@ export default function AddMachine() {
                       <div className="pt-6">
                           <button
                               type="submit"
-                              className="w-full h-20 bg-primary hover:bg-[#22c55e] text-background-dark rounded-[32px] font-black text-xl uppercase tracking-tighter flex items-center justify-center gap-4 transition-all shadow-2xl shadow-primary/20 hover:scale-[1.02] active:scale-95"
+                              className="w-full h-16 md:h-20 bg-primary hover:bg-[#22c55e] text-background-dark rounded-[24px] md:rounded-[32px] font-black text-lg md:text-xl uppercase tracking-tighter flex items-center justify-center gap-4 transition-all shadow-2xl shadow-primary/20 hover:scale-[1.02] active:scale-95"
                           >
-                              <Plus className="w-7 h-7 stroke-[3]" />
-                              Confirm Asset Registration
+                              <Plus className="w-6 h-6 md:w-7 md:h-7 stroke-[3]" />
+                              REGISTRATION
                           </button>
+                      </div>
+
+                      <div className="p-6 md:p-8 bg-slate-100 dark:bg-slate-800/50 rounded-[28px] md:rounded-[40px] text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-white/5">
+                        <div className="flex items-center gap-3 mb-3 md:mb-4">
+                            <Info className="w-4 h-4 text-primary" />
+                            <h4 className="text-[10px] md:text-xs font-black uppercase tracking-widest">Fleet Guidelines</h4>
+                        </div>
+                        <p className="text-[11px] md:text-xs font-medium leading-relaxed opacity-80">
+                            Ensure all technical specifications match the physical asset. Registered machines are automatically enrolled in the seasonal maintenance schedule.
+                        </p>
                       </div>
                   </section>
               </div>

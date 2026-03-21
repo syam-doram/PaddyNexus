@@ -1,7 +1,10 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
-import { Sprout, ArrowRight, Tractor, Briefcase, Zap } from 'lucide-react';
+import { Sprout, ArrowRight, Tractor, Briefcase } from 'lucide-react';
+import agritechImg from '../../assets/onboarding/agritech.png';
+import fleetImg from '../../assets/onboarding/fleet.png';
+import inventoryImg from '../../assets/onboarding/inventory.png';
 
 const ONBOARDING_STEPS = [
   {
@@ -11,7 +14,7 @@ const ONBOARDING_STEPS = [
     description: "Seamlessly connect with direct markets and simplify your logistics today.",
     tag: "Agri-Tech Solutions",
     icon: Sprout,
-    image: "https://lh3.googleusercontent.com/aida-public/AB6AXuAm44lqBVqkgbFHT-E3TTCIHHnQLIHaZosqmiFJmloryLG1VEzCCPQLZvqEpTjQqa0lE2J2wyBn3S8neDsrVOHAiY8re-2JxebQs4VDpY4Z6ulbLksfULL37s_HdWPGpFxlJAyNm_HFuiTeSzKsJU3ZVdKf_7OqxPoAlvMpVufHF0Msj43PAqSV9pOMv4tEmnwWFS5V0lYDZK2TQA-f2wTyGfjCXb8Oiwf3HiXwaHE_MSz34J0yOpLRayvpp2kBXZeH2mf3qVrosZs"
+    image: agritechImg
   },
   {
     id: 2,
@@ -20,7 +23,7 @@ const ONBOARDING_STEPS = [
     description: "Manage your fleet of harvesting machines, track operators, and monitor real-time earnings.",
     tag: "Fleet Control",
     icon: Tractor,
-    image: "https://images.unsplash.com/photo-1594776208137-aa2f9f1d41a5?q=80&w=2072&auto=format&fit=crop"
+    image: fleetImg
   },
   {
     id: 3,
@@ -29,7 +32,7 @@ const ONBOARDING_STEPS = [
     description: "Keep track of unique paddy lots, batches, and settlements for each trader account.",
     tag: "Multi-Trader Support",
     icon: Briefcase,
-    image: "https://images.unsplash.com/photo-1594911776510-18451109a150?q=80&w=2072&auto=format&fit=crop"
+    image: inventoryImg
   }
 ];
 

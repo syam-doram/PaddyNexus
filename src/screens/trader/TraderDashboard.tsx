@@ -267,26 +267,19 @@ export default function TraderDashboard() {
                                 </div>
                             )}
                         </div>
-
-                        <div className="mt-8 md:mt-12 pt-6 md:pt-8 border-t border-white/5">
-                             <div className="grid grid-cols-2 gap-3 md:gap-4">
-                                <button className="p-3 md:p-4 bg-white/5 rounded-xl md:rounded-2xl text-center group">
-                                    <Users className="w-4 h-4 md:w-5 md:h-5 text-white/40 mx-auto mb-2 group-hover:text-primary transition-colors" />
-                                    <p className="text-[7px] md:text-[8px] font-black uppercase tracking-widest text-white/40">Teams</p>
-                                </button>
-                                <button className="p-3 md:p-4 bg-white/5 rounded-xl md:rounded-2xl text-center group">
-                                    <IndianRupee className="w-4 h-4 md:w-5 md:h-5 text-white/40 mx-auto mb-2 group-hover:text-primary transition-colors" />
-                                    <p className="text-[7px] md:text-[8px] font-black uppercase tracking-widest text-white/40">Audit</p>
-                                </button>
+                        <div className="mt-8 md:mt-12 pt-6 md:pt-8 border-t border-white/5 flex items-center justify-between">
+                             <div className="w-full h-12 bg-white/5 rounded-2xl flex items-center justify-center border border-white/5">
+                                 <Clock className="w-4 h-4 text-primary mr-2" />
+                                 <span className="text-[10px] font-black text-white/40 uppercase tracking-widest">Real-time Feed Active</span>
                              </div>
                         </div>
                     </div>
                     
                     <div className="mt-8 md:mt-10 relative z-10">
-                         <div className="p-4 md:p-5 bg-primary/10 rounded-[20px] md:rounded-3xl border border-primary/20 text-center">
-                             <p className="text-[9px] md:text-[10px] font-black text-primary uppercase tracking-widest mb-1">Intelligence Scoped</p>
-                             <p className="text-[10px] md:text-xs font-bold opacity-60">Session {new Date().getFullYear()}</p>
-                         </div>
+                          <div className="p-4 md:p-5 bg-primary/10 rounded-[20px] md:rounded-3xl border border-primary/20 text-center">
+                              <p className="text-[9px] md:text-[10px] font-black text-primary uppercase tracking-widest mb-1">{new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                              <p className="text-[10px] md:text-xs font-bold opacity-60">System Operational</p>
+                          </div>
                     </div>
                 </div>
             </div>

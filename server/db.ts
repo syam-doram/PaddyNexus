@@ -197,7 +197,9 @@ db.exec(`
     address TEXT,
     experience TEXT,
     status TEXT DEFAULT 'ACTIVE',
-    registration_date TEXT NOT NULL
+    registration_date TEXT NOT NULL,
+    trader_id INTEGER,
+    FOREIGN KEY(trader_id) REFERENCES users(id)
   );
 
   CREATE TABLE IF NOT EXISTS paddy_market (
@@ -238,6 +240,15 @@ try {
 } catch (err: any) {
   if (!err.message.includes("duplicate column name")) {
     console.error("Migration error (add labour_group_id to lots):", err.message);
+  }
+}
+
+try {
+  db.prepare("ALTER TABLE users ADD COLUMN image TEXT").run();
+  console.log("Migration: Added image column to users");
+} catch (err: any) {
+  if (!err.message.includes("duplicate column name")) {
+    console.error("Migration error (add image to users):", err.message);
   }
 }
 
@@ -429,7 +440,7 @@ try {
 // Migration: Add trader_id to all relevant tables for multi-trader support
 const tablesToMigrate = [
   'machines', 'machine_logs', 'machine_advances', 'lots', 'batches', 
-  'farmer_advances', 'mills', 'mill_payments', 'labour_groups', 'paddy_market', 'silos', 'users'
+  'farmer_advances', 'mills', 'mill_payments', 'labour_groups', 'paddy_market', 'silos', 'users', 'operators'
 ];
 
 tablesToMigrate.forEach(table => {

@@ -12,6 +12,11 @@
   },
   "dependencies": {
     "@capacitor/android": "^8.2.0",
+    "@capacitor/app": "^8.0.1",
+    "@capacitor/camera": "^8.0.2",
+    "@capacitor/filesystem": "^8.1.2",
+    "@capacitor/splash-screen": "^8.0.1",
+    "@capacitor/toast": "^8.0.1",
     "@google/genai": "^1.29.0",
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",

@@ -1,9 +1,11 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, MapPin, Mountain, Tractor, Star, User, Banknote, Store, Bell, Plus, ChevronRight, CheckCircle2, LogOut, Edit2, X, Package, Users as UsersIcon, ShieldCheck, Lock, Shield, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { API_BASE_URL } from '../../config/apiConfig';
+import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { AnimatePresence } from 'motion/react';
 
 export default function Profile() {
   const navigate = useNavigate();
@@ -15,7 +17,7 @@ export default function Profile() {
   const [machineRate, setMachineRate] = useState('0');
   const [labourRate, setLabourRate] = useState('0');
   const [loadingRates, setLoadingRates] = useState(false);
-  const [realStats, setRealStats] = useState({ lots: 0, machines: 0 });
+  const [realStats, setRealStats] = useState({ lots: 0, machines: 0, operators: 0, members: 0 });
   
   // Password Change State
   const [isChangingPassword, setIsChangingPassword] = useState(false);
@@ -54,25 +56,39 @@ export default function Profile() {
       // Fetch real stats
       const fetchSummary = async () => {
         try {
-          const [lotsRes, machinesRes] = await Promise.all([
+          const [lotsRes, machinesRes, opsRes, usersRes] = await Promise.all([
             fetch(`${API_BASE_URL}/lot-stages?traderId=${user?.id}`),
-            fetch(`${API_BASE_URL}/machines?includeSettled=true&traderId=${user?.id}`)
+            fetch(`${API_BASE_URL}/machines?includeSettled=true&traderId=${user?.id}`),
+            fetch(`${API_BASE_URL}/operators?traderId=${user?.id}`),
+            fetch(`${API_BASE_URL}/auth/users?traderId=${user?.id}`)
           ]);
           
           let lotsCount = 0;
           let machinesCount = 0;
+          let opsCount = 0;
+          let usersCount = 0;
 
           if (lotsRes.ok) {
             const lotsData = await lotsRes.json();
             lotsCount = Array.isArray(lotsData) ? lotsData.length : 0;
           }
           
-          if (machinesRes.ok) {
-            const machinesData = await machinesRes.json();
-            machinesCount = Array.isArray(machinesData) ? machinesData.filter((m: any) => m.is_settled_year === 0).length : 0;
+          if (opsRes.ok) {
+            const opsData = await opsRes.json();
+            opsCount = Array.isArray(opsData) ? opsData.length : 0;
           }
 
-          setRealStats({ lots: lotsCount, machines: machinesCount });
+          if (usersRes.ok) {
+             const usersData = await usersRes.json();
+             usersCount = Array.isArray(usersData) ? usersData.length : 0;
+          }
+
+          setRealStats({ 
+            lots: lotsCount, 
+            machines: machinesCount,
+            operators: opsCount,
+            members: usersCount
+          });
         } catch (e) {
           console.error("Failed to fetch trader stats:", e);
         }
@@ -143,13 +159,39 @@ export default function Profile() {
     }
   };
 
+  const handleUpdatePhoto = async () => {
+    try {
+      const image = await Camera.getPhoto({
+        quality: 90,
+        allowEditing: true,
+        resultType: CameraResultType.Base64,
+        source: CameraSource.Prompt
+      });
+
+      if (image.base64String && user) {
+        const photoUrl = `data:image/jpeg;base64,${image.base64String}`;
+        const res = await fetch(`${API_BASE_URL}/auth/update-photo`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId: user.id, image: photoUrl })
+        });
+
+        if (res.ok) {
+          login({ ...user, image: photoUrl });
+        }
+      }
+    } catch (err) {
+      console.error("Photo update error:", err);
+    }
+  };
+
   const isMachine = user?.role === 'machine_harvest';
   const isTrader = user?.role === 'trader';
 
   const stats = isTrader ? [
     { label: 'Total Lots', value: realStats.lots.toString(), icon: Package, color: 'text-blue-500' },
-    { label: 'Active Machines', value: realStats.machines.toString(), icon: Tractor, color: 'text-orange-500' },
-    { label: 'Comm. Earned', value: '₹ 12.5k', icon: Banknote, color: 'text-emerald-500' },
+    { label: 'Operators', value: realStats.operators.toString(), icon: ShieldCheck, color: 'text-orange-500' },
+    { label: 'Workforce', value: realStats.members.toString(), icon: UsersIcon, color: 'text-emerald-500' },
   ] : [
     { label: isMachine ? 'Total Acres' : 'Total Lots', value: isMachine ? '450' : '24', icon: Mountain, color: 'text-primary' },
     { label: isMachine ? 'Total Machines' : 'Quintals Sold', value: isMachine ? '12' : '1,200', icon: Tractor, color: 'text-primary' },
@@ -167,6 +209,7 @@ export default function Profile() {
   const years = [2024, 2025, 2026, 2027];
 
   return (
+    <>
     <div className="relative flex h-full w-full flex-col bg-background-light dark:bg-background-dark font-display overflow-hidden">
       {/* Header / Navigation */}
       <div className="flex items-center px-4 lg:px-6 pt-6 lg:pt-12 pb-3 lg:pb-4 justify-between bg-white/95 dark:bg-surface-dark/95 backdrop-blur-md sticky top-0 z-40 border-b border-slate-100 dark:border-white/5">
@@ -194,13 +237,22 @@ export default function Profile() {
              <div className="bg-white dark:bg-surface-dark lg:rounded-3xl lg:border lg:border-slate-100 lg:dark:border-white/5 lg:shadow-sm">
         <div className="flex p-5 md:p-6 pb-4">
           <div className="flex w-full flex-col gap-3 md:gap-4 items-center">
-            <div className="relative">
+            <div className="relative group cursor-pointer" onClick={handleUpdatePhoto}>
               <div 
-                className="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-28 w-28 md:h-32 md:w-32 shadow-lg ring-4 ring-white dark:ring-surface-dark" 
-                style={{ backgroundImage: `url("${isMachine ? 'https://lh3.googleusercontent.com/aida-public/AB6AXuDay4k-df8zlBZVQudvd8BO5561fh3T0-mUlCWbtu5pW087kui5VwJPRz5_G0-UYXZF5VyKoqbneye09jylqM6OyMRUeQV01gvi3ITpYXSsF9iMnkEtM99bw3v-FCOY778WhC__IPFTnnMU3va-lIBq5ZYocM8SKeYQB0jEsa05oWTC70YzNycmMnV9eCnCNBPF2UTTuSw67t-Atje5H73QMNpeaXR563im8MB77YXi-vvsJXFZgzZUaifCyB6NJ5HFSCiD3HBFn7s' : 'https://lh3.googleusercontent.com/aida-public/AB6AXuC2JJauKpEgC07dEOGdzhipVU6nUTandGmUkP2xJMCUBrVIRgGvVnTBLk723wYC1hyxVrGneHuNlcCJMH5DmuJTQreAPD7LjTosbLUuAtu60jR-gSMS76erAlfgcssPDShhYMuD5lhjBOGSYrlFoQ97Q2wJFe-a2v1i52cB6oKPSHnyEjz2XCJRMJs4r8gM8h241ZxrAfWRXq88tCuMpgyPkf2xDSP5P7kjzEMPlF4WUIihnQlyBh-NW3gsCniUu7C4IBlUdzF3RAc'}")` }}
-              />
-              <div className="absolute bottom-1 right-1 bg-blue-500 text-white p-1.5 rounded-full ring-2 ring-white dark:ring-surface-dark flex items-center justify-center shadow-sm">
-                <CheckCircle2 className="w-3.5 h-3.5 md:w-4 md:h-4" />
+                className="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-28 w-28 md:h-32 md:w-32 shadow-lg ring-4 ring-white dark:ring-surface-dark overflow-hidden flex items-center justify-center bg-slate-100 dark:bg-slate-800" 
+              >
+                {user?.image ? (
+                  <img src={user.image} className="w-full h-full object-cover" alt="Profile" />
+                ) : (
+                  <User className="w-12 h-12 text-slate-400" />
+                )}
+                {/* Hover Overlay */}
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <Edit2 className="w-6 h-6 text-white" />
+                </div>
+              </div>
+              <div className="absolute bottom-1 right-1 bg-primary text-slate-900 p-1.5 rounded-full ring-2 ring-white dark:ring-surface-dark flex items-center justify-center shadow-sm">
+                <ShieldCheck className="w-3.5 h-3.5 md:w-4 md:h-4" />
               </div>
             </div>
             <div className="flex flex-col items-center justify-center gap-1">
@@ -407,5 +459,109 @@ export default function Profile() {
 
 
     </div>
+
+    {/* Change Password Modal */}
+    <AnimatePresence>
+      {isChangingPassword && (
+        <div className="fixed inset-0 z-[200] flex items-end md:items-center justify-center p-0 md:p-4 bg-slate-900/60 backdrop-blur-sm">
+          <motion.div initial={{ opacity: 0, y: "100%" }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: "100%" }} transition={{ type: "spring", damping: 25, stiffness: 200 }} className="w-full max-w-lg bg-white dark:bg-slate-900 rounded-t-[40px] md:rounded-[40px] shadow-2xl overflow-hidden flex flex-col h-[85vh] md:h-auto">
+            {/* Drag Handle for Mobile */}
+            <div className="w-full h-1.5 flex items-center justify-center pt-4 pb-2 md:hidden">
+              <div className="w-12 h-1 bg-slate-200 dark:bg-slate-800 rounded-full" />
+            </div>
+
+            <div className="p-6 md:p-8 border-b border-slate-100 dark:border-white/5 flex items-center justify-between">
+              <div>
+                <h3 className="text-xl md:text-2xl font-black uppercase tracking-tighter">Secure <span className="text-primary italic">Credentials</span></h3>
+                <p className="text-[10px] md:text-xs font-black text-slate-400 uppercase tracking-widest mt-1">Access Maintenance Module</p>
+              </div>
+              <button onClick={() => setIsChangingPassword(false)} className="p-2 md:p-3 hover:bg-slate-100 dark:hover:bg-white/5 rounded-xl md:rounded-2xl transition-all">
+                <X className="w-5 h-5 md:w-6 md:h-6" />
+              </button>
+            </div>
+
+            <form onSubmit={handlePasswordChange} className="p-6 md:p-8 space-y-6">
+              {/* Password fields */}
+              <div className="space-y-4">
+                {/* Old Password */}
+                <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Current Password</label>
+                    <div className="relative">
+                        <input 
+                            type={showPasswords.old ? "text" : "password"} 
+                            value={passwordForm.old} 
+                            onChange={e => setPasswordForm(prev => ({ ...prev, old: e.target.value }))}
+                            className="w-full h-14 px-6 bg-slate-50 dark:bg-white/5 border border-transparent focus:border-primary/30 rounded-2xl outline-none font-bold placeholder:text-slate-300"
+                            placeholder="••••••••"
+                        />
+                        <button type="button" onClick={() => setShowPasswords(p => ({ ...p, old: !p.old }))} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary transition-colors">
+                            {showPasswords.old ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        </button>
+                    </div>
+                </div>
+
+                {/* New Password */}
+                <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">New Credential</label>
+                    <div className="relative">
+                        <input 
+                            type={showPasswords.new ? "text" : "password"} 
+                            value={passwordForm.new} 
+                            onChange={e => setPasswordForm(prev => ({ ...prev, new: e.target.value }))}
+                            className="w-full h-14 px-6 bg-slate-50 dark:bg-white/5 border border-transparent focus:border-primary/30 rounded-2xl outline-none font-bold placeholder:text-slate-300"
+                            placeholder="At least 4 chars"
+                        />
+                        <button type="button" onClick={() => setShowPasswords(p => ({ ...p, new: !p.new }))} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary transition-colors">
+                            {showPasswords.new ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        </button>
+                    </div>
+                </div>
+
+                {/* Confirm Password */}
+                <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Validate Credential</label>
+                    <div className="relative">
+                        <input 
+                            type={showPasswords.confirm ? "text" : "password"} 
+                            value={passwordForm.confirm} 
+                            onChange={e => setPasswordForm(prev => ({ ...prev, confirm: e.target.value }))}
+                            className="w-full h-14 px-6 bg-slate-50 dark:bg-white/5 border border-transparent focus:border-primary/30 rounded-2xl outline-none font-bold placeholder:text-slate-300"
+                            placeholder="Re-type new password"
+                        />
+                        <button type="button" onClick={() => setShowPasswords(p => ({ ...p, confirm: !p.confirm }))} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary transition-colors">
+                            {showPasswords.confirm ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        </button>
+                    </div>
+                </div>
+              </div>
+
+              {passError && (
+                <div className="p-4 bg-red-50 dark:bg-red-500/10 border border-red-100 dark:border-red-500/20 rounded-2xl flex items-center gap-3 text-red-500">
+                    <Shield className="w-5 h-5" />
+                    <span className="text-xs font-bold uppercase tracking-wide">{passError}</span>
+                </div>
+              )}
+
+              {passSuccess && (
+                <div className="p-4 bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-100 dark:border-emerald-100/20 rounded-2xl flex items-center gap-3 text-emerald-500">
+                    <CheckCircle2 className="w-5 h-5" />
+                    <span className="text-xs font-bold uppercase tracking-wide">Credentials Verified & Updated</span>
+                </div>
+              )}
+
+              <button 
+                type="submit" 
+                disabled={passLoading || !passwordForm.old || !passwordForm.new || !passwordForm.confirm}
+                className="w-full h-16 bg-primary text-slate-900 rounded-2xl font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-[1.01] active:scale-95 transition-all disabled:opacity-50 flex items-center justify-center gap-3 mt-4"
+              >
+                {passLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Lock className="w-5 h-5" />}
+                Authorise Update
+              </button>
+            </form>
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+    </>
   );
 }

@@ -163,7 +163,7 @@ export default function Tracking() {
       <div className="mx-auto w-full max-w-[1600px] flex flex-col lg:flex-row h-full relative overflow-hidden">
         
         {/* Left Pane: Interactive Map & Header (lg:w-[60%]) */}
-        <div className="relative flex-1 lg:w-[60%] h-[50vh] lg:h-full overflow-hidden flex flex-col bg-slate-200 dark:bg-slate-900 border-r border-slate-200 dark:border-white/5">
+        <div className="relative flex-1 lg:w-[60%] h-[40vh] lg:h-full overflow-hidden flex flex-col bg-slate-200 dark:bg-slate-900 border-r border-slate-200 dark:border-white/5">
             
             {/* Header Overlay */}
             <header className="absolute top-0 left-0 right-0 z-50 px-5 py-6 lg:p-6 flex items-center justify-between">
@@ -315,6 +315,37 @@ export default function Tracking() {
                     ))}
                 </div>
             </section>
+            {/* Protocol Control */}
+            <div className="mb-12">
+                {!['DELIVERED TO MILL', 'QUALITY CHECK', 'PAID'].includes(lot.stage) ? (
+                    <button
+                        onClick={() => {
+                            const nextStage = STAGE_FLOW[lot.stage] || STAGE_FLOW[''];
+                            if (nextStage) handleUpdateStage(nextStage);
+                        }}
+                        className={`w-full group h-14 lg:h-20 bg-primary text-background-dark rounded-xl lg:rounded-[24px] flex items-center justify-between px-8 lg:px-10 font-black text-sm shadow-2xl shadow-primary/20 active:scale-98 transition-all overflow-hidden relative`}
+                    >
+                        <div className="flex flex-col items-start translate-y-0.5 lg:translate-y-0">
+                             <span className="text-[8px] lg:text-[9px] uppercase tracking-[0.3em] opacity-60 leading-none mb-1 lg:mb-0">Authorize Protocol</span>
+                             <span className="text-base lg:text-lg uppercase italic tracking-tighter leading-none">
+                                {STAGE_LABELS[lot.stage] || STAGE_LABELS['']}
+                             </span>
+                        </div>
+                        <div className="w-8 h-8 lg:w-10 lg:h-10 bg-background-dark/10 rounded-full flex items-center justify-center group-hover:translate-x-2 transition-transform">
+                            <ChevronRight className="w-5 h-5 lg:w-6 lg:h-6" />
+                        </div>
+                        <div className="absolute top-0 right-0 w-32 h-full bg-white/10 -skew-x-[30deg] translate-x-32 group-hover:translate-x-12 transition-transform duration-700" />
+                    </button>
+                ) : (
+                    <div className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 p-8 rounded-[40px] flex items-center justify-between">
+                         <div>
+                            <p className="text-[10px] font-black uppercase tracking-[0.4em] mb-1">Logistics Complete</p>
+                            <p className="text-2xl font-black italic tracking-tighter uppercase">Payload Secured</p>
+                         </div>
+                         <CheckCircle2 className="w-12 h-12 opacity-50" />
+                    </div>
+                )}
+            </div>
 
             <section className="space-y-6 mb-12">
                 <div className="flex items-center justify-between px-2">
@@ -356,41 +387,6 @@ export default function Tracking() {
                     </div>
                 </div>
             </section>
-
-            {/* Protocol Control */}
-            <div className="mt-auto pt-6 border-t border-slate-200 dark:border-white/5">
-                {!['DELIVERED TO MILL', 'QUALITY CHECK', 'PAID'].includes(lot.stage) ? (
-                    <button
-                        onClick={() => {
-                            const nextStage = STAGE_FLOW[lot.stage] || STAGE_FLOW[''];
-                            if (nextStage) handleUpdateStage(nextStage);
-                        }}
-                        disabled={(['LOADING', 'LOADED'].includes(lot.stage)) && (parseInt(lot.bags) || 0) === 0}
-                        className={`w-full group h-14 lg:h-20 bg-primary text-background-dark rounded-xl lg:rounded-[24px] flex items-center justify-between px-8 lg:px-10 font-black text-sm shadow-2xl shadow-primary/20 active:scale-98 transition-all overflow-hidden relative ${
-                        (['LOADING', 'LOADED'].includes(lot.stage) && (parseInt(lot.bags) || 0) === 0) ? 'opacity-50 cursor-not-allowed grayscale' : ''
-                        }`}
-                    >
-                        <div className="flex flex-col items-start translate-y-0.5 lg:translate-y-0">
-                             <span className="text-[8px] lg:text-[9px] uppercase tracking-[0.3em] opacity-60 leading-none mb-1 lg:mb-0">Authorize Protocol</span>
-                             <span className="text-base lg:text-lg uppercase italic tracking-tighter leading-none">
-                                {STAGE_LABELS[lot.stage] || STAGE_LABELS['']}
-                             </span>
-                        </div>
-                        <div className="w-8 h-8 lg:w-10 lg:h-10 bg-background-dark/10 rounded-full flex items-center justify-center group-hover:translate-x-2 transition-transform">
-                            <ChevronRight className="w-5 h-5 lg:w-6 lg:h-6" />
-                        </div>
-                        <div className="absolute top-0 right-0 w-32 h-full bg-white/10 -skew-x-[30deg] translate-x-32 group-hover:translate-x-12 transition-transform duration-700" />
-                    </button>
-                ) : (
-                    <div className="bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 p-8 rounded-[40px] flex items-center justify-between">
-                         <div>
-                            <p className="text-[10px] font-black uppercase tracking-[0.4em] mb-1">Logistics Complete</p>
-                            <p className="text-2xl font-black italic tracking-tighter uppercase">Payload Secured</p>
-                         </div>
-                         <CheckCircle2 className="w-12 h-12 opacity-50" />
-                    </div>
-                )}
-            </div>
           </div>
         </div>
 

@@ -281,7 +281,10 @@ export default function PaddyEarn() {
              </div>
              <button 
                 onClick={() => setShowPreview(true)}
-                className="flex items-center gap-2 px-4 md:px-6 py-3 md:py-4 bg-slate-900 dark:bg-green-600 text-white font-black rounded-xl md:rounded-2xl text-[9px] md:text-[10px] uppercase tracking-widest hover:bg-green-600 dark:hover:bg-green-500 transition-all shadow-xl shadow-slate-900/10"
+                disabled={!summary || summary.activeLots === 0}
+                className={`flex items-center gap-2 px-4 md:px-6 py-3 md:py-4 bg-slate-900 dark:bg-green-600 text-white font-black rounded-xl md:rounded-2xl text-[9px] md:text-[10px] uppercase tracking-widest hover:bg-green-600 dark:hover:bg-green-500 transition-all shadow-xl shadow-slate-900/10 ${
+                  (!summary || summary.activeLots === 0) ? 'opacity-50 pointer-events-none' : ''
+                }`}
               >
                  <FileText className="w-3.5 h-3.5 md:w-4 md:h-4" />
                  <span className="hidden sm:inline">Audit Preview</span>
@@ -307,7 +310,9 @@ export default function PaddyEarn() {
                 
                 <div className="space-y-1 md:space-y-2">
                    <p className="text-[10px] md:text-xs font-black text-slate-400 dark:text-slate-500 uppercase tracking-[0.2em] mb-2 leading-none">Net Realized Value</p>
-                   <p className="text-4xl md:text-6xl font-[1000] text-slate-900 dark:text-white tracking-tighter italic">₹{(summary.profit / 100000).toFixed(2)}L</p>
+                   <p className="text-4xl md:text-6xl font-[1000] text-slate-900 dark:text-white tracking-tighter italic">
+                     {summary.profit >= 100000 ? `₹${(summary.profit / 100000).toFixed(2)}L` : `₹${summary.profit.toLocaleString()}`}
+                   </p>
                    <div className="flex items-center gap-2">
                       <TrendingUp className="w-3.5 h-3.5 md:w-4 md:h-4 text-green-500" />
                       <span className="text-[11px] md:text-xs font-bold text-green-500">+8.4%</span>
