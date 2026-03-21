@@ -644,7 +644,7 @@ export default function MillSettlement() {
         <div className="flex items-center gap-4 md:gap-8">
           <button
             onClick={() => navigate('/mill-settlements')}
-            className="hidden md:flex w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 items-center justify-center text-slate-400 hover:text-primary hover:border-primary/50 transition-all shadow-sm shrink-0"
+            className="flex w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 items-center justify-center text-slate-400 hover:text-primary hover:border-primary/50 transition-all shadow-sm shrink-0"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>
@@ -924,8 +924,8 @@ export default function MillSettlement() {
               exit={{ opacity: 0, scale: 0.9, y: 30 }}
               className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-[32px] md:rounded-[48px] p-6 sm:p-10 md:p-12 shadow-[0_32px_128px_rgba(23,207,84,0.15)] overflow-hidden border border-white/5"
             >
-              <button 
-                onClick={() => setIsPaymentModalOpen(false)} 
+              <button
+                onClick={() => setIsPaymentModalOpen(false)}
                 className="absolute top-6 right-6 w-10 h-10 bg-slate-50 dark:bg-white/5 rounded-xl flex items-center justify-center text-slate-400 hover:text-rose-500 transition-colors"
                 type="button"
               >
@@ -997,15 +997,15 @@ export default function MillSettlement() {
               exit={{ opacity: 0, scale: 0.9 }}
               className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-3xl md:rounded-[48px] p-6 sm:p-10 shadow-2xl border border-white/5"
             >
-              <button 
-                onClick={() => setIsDeductionModalOpen(false)} 
+              <button
+                onClick={() => setIsDeductionModalOpen(false)}
                 className="absolute top-6 right-6 text-slate-400 hover:text-rose-500 transition-colors"
                 type="button"
               >
                 <X className="w-5 h-5 md:w-6 md:h-6" />
               </button>
               <h3 className="text-2xl md:text-3xl font-[1000] text-slate-900 dark:text-white uppercase italic tracking-tighter mb-8 leading-none">Edit Audit</h3>
-              
+
               <form onSubmit={handleUpdateDeductions} className="space-y-6">
                 <div className="grid grid-cols-1 gap-4">
                   <div>
@@ -1036,7 +1036,7 @@ export default function MillSettlement() {
                     />
                   </div>
                 </div>
-                
+
                 <button
                   type="submit"
                   disabled={isSavingDeductions}
@@ -1233,7 +1233,7 @@ function MillLotDashboard({
       {/* RE-ARCHITECTED: 4-COLUMN AUDIT COMMAND CENTER */}
       <div className="bg-white dark:bg-slate-900 rounded-[32px] md:rounded-[56px] p-6 sm:p-8 md:p-12 border border-slate-100 dark:border-white/5 shadow-2xl relative overflow-hidden group mb-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-8 md:gap-12 relative z-10">
-          
+
           {/* COLUMN 1: PRIMARY VALUATION (COMBINED GROSS) */}
           <div className="space-y-6">
             <div className="space-y-1">
@@ -1246,7 +1246,7 @@ function MillLotDashboard({
                 Total Combined Gross
               </p>
             </div>
-            
+
             <div className="pt-6 border-t border-slate-50 dark:border-white/5 space-y-3">
               <div className="flex justify-between items-center group/item hover:bg-slate-50/50 dark:hover:bg-white/[0.02] p-2 -mx-2 rounded-xl transition-all">
                 <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Paddy Inventory</span>
@@ -1278,15 +1278,15 @@ function MillLotDashboard({
 
             <div className="space-y-4">
               <div className="flex justify-between items-center">
-                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-                   <Activity className="w-2.5 h-2.5" />
-                   Verification Strategy
-                 </p>
-                 <span className="text-[8px] font-black bg-primary/10 text-primary px-2 py-0.5 rounded-full uppercase tracking-widest">
-                   {lot.post_load_scale > 0 ? 'Digital Audit' : 'Bag Audit'}
-                 </span>
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                  <Activity className="w-2.5 h-2.5" />
+                  Verification Strategy
+                </p>
+                <span className="text-[8px] font-black bg-primary/10 text-primary px-2 py-0.5 rounded-full uppercase tracking-widest">
+                  {lot.post_load_scale > 0 ? 'Digital Audit' : 'Bag Audit'}
+                </span>
               </div>
-              
+
               <div className="bg-slate-50/50 dark:bg-white/5 p-4 rounded-2xl border border-dashed border-slate-200 dark:border-white/10">
                 <div className="flex justify-between items-center mb-1">
                   <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">Total Net Yield</span>
@@ -1296,7 +1296,7 @@ function MillLotDashboard({
                   {lot.totalWeightKgs?.toLocaleString('en-IN')} <span className="text-[10px] opacity-40">KGS</span>
                 </p>
               </div>
-              
+
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest italic truncate">
                 <MapPin className="w-2.5 h-2.5 inline mr-1" /> {lot.load_area || 'Standard Logistics'}
               </p>
@@ -1311,29 +1311,29 @@ function MillLotDashboard({
                 ₹{totalPayments.toLocaleString('en-IN')}
               </h4>
               <div className="flex items-center gap-2 mt-3">
-                 <div className="h-1 flex-1 bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
-                    <motion.div 
-                      initial={{ width: 0 }}
-                      animate={{ width: `${combinedGrossAmount > 0 ? (totalPayments / combinedGrossAmount) * 100 : 0}%` }}
-                      className="h-full bg-emerald-500" 
-                    />
-                 </div>
-                 <span className="text-[9px] font-black text-emerald-500 uppercase">{combinedGrossAmount > 0 ? ((totalPayments / combinedGrossAmount) * 100).toFixed(0) : 0}%</span>
+                <div className="h-1 flex-1 bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${combinedGrossAmount > 0 ? (totalPayments / combinedGrossAmount) * 100 : 0}%` }}
+                    className="h-full bg-emerald-500"
+                  />
+                </div>
+                <span className="text-[9px] font-black text-emerald-500 uppercase">{combinedGrossAmount > 0 ? ((totalPayments / combinedGrossAmount) * 100).toFixed(0) : 0}%</span>
               </div>
             </div>
 
             <div className="pt-6 border-t border-slate-50 dark:border-white/5 space-y-4">
-               <div>
-                  <p className="text-[10px] font-black text-rose-500 uppercase tracking-[0.2em] leading-none mb-1">Audit Deductions</p>
-                  <p className="text-sm sm:text-base font-black text-rose-500 italic tabular-nums leading-none">₹{totalDeductions.toLocaleString('en-IN')}</p>
-               </div>
-               <div className="bg-slate-50 dark:bg-white/5 p-3 sm:p-4 rounded-2xl flex items-center justify-between group-hover:bg-primary transition-all duration-500">
-                  <div className="truncate pr-4">
-                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1 group-hover:text-slate-900 transition-colors">Vehicle Identity</p>
-                    <p className="text-[9px] sm:text-[10px] font-black text-slate-900 dark:text-white group-hover:text-slate-900 transition-colors uppercase italic truncate">{lot.reg_number || 'N/A'}</p>
-                  </div>
-                  <Truck className="w-4 h-4 text-slate-300 group-hover:text-slate-900 transition-colors shrink-0" />
-               </div>
+              <div>
+                <p className="text-[10px] font-black text-rose-500 uppercase tracking-[0.2em] leading-none mb-1">Audit Deductions</p>
+                <p className="text-sm sm:text-base font-black text-rose-500 italic tabular-nums leading-none">₹{totalDeductions.toLocaleString('en-IN')}</p>
+              </div>
+              <div className="bg-slate-50 dark:bg-white/5 p-3 sm:p-4 rounded-2xl flex items-center justify-between group-hover:bg-primary transition-all duration-500">
+                <div className="truncate pr-4">
+                  <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1 group-hover:text-slate-900 transition-colors">Vehicle Identity</p>
+                  <p className="text-[9px] sm:text-[10px] font-black text-slate-900 dark:text-white group-hover:text-slate-900 transition-colors uppercase italic truncate">{lot.reg_number || 'N/A'}</p>
+                </div>
+                <Truck className="w-4 h-4 text-slate-300 group-hover:text-slate-900 transition-colors shrink-0" />
+              </div>
             </div>
           </div>
 
@@ -1363,7 +1363,7 @@ function MillLotDashboard({
                 <span className="hidden sm:inline">Download Audit Context</span>
                 <span className="sm:hidden">Download Report</span>
               </button>
-              
+
               <button
                 onClick={() => onSettleLot(lot.id)}
                 disabled={!isCleared || isSettled || isUpdating}
@@ -1388,76 +1388,76 @@ function MillLotDashboard({
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 md:gap-8 mb-8">
         {/* TRADER & LABOR EARNINGS */}
         <div className="bg-white dark:bg-slate-900 rounded-[32px] md:rounded-[40px] p-6 sm:p-8 md:p-10 border border-slate-100 dark:border-white/5 shadow-sm space-y-6 sm:space-y-8">
-           <div className="flex items-center justify-between">
-              <div>
-                 <h5 className="text-[11px] sm:text-[12px] font-black text-slate-900 dark:text-white uppercase tracking-[0.2em] italic">Merchant & Labour Ledger</h5>
-                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Institutional Service Earnings</p>
-              </div>
-              <TrendingUp className="w-5 h-5 text-emerald-500 shrink-0" />
-           </div>
+          <div className="flex items-center justify-between">
+            <div>
+              <h5 className="text-[11px] sm:text-[12px] font-black text-slate-900 dark:text-white uppercase tracking-[0.2em] italic">Merchant & Labour Ledger</h5>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Institutional Service Earnings</p>
+            </div>
+            <TrendingUp className="w-5 h-5 text-emerald-500 shrink-0" />
+          </div>
 
-           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-8">
-              <div className="bg-slate-50/50 dark:bg-white/[0.02] p-4 rounded-2xl border border-slate-100 dark:border-white/5">
-                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 leading-none">Trader Revenue</p>
-                 <p className="text-xl sm:text-2xl font-[1000] text-slate-900 dark:text-white italic tracking-tighter leading-none">₹{traderAmount.toLocaleString('en-IN')}</p>
-                 <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-2">{lot.totalBags || 0} Bags × ₹{lot.dealer_commission_rate}</p>
-              </div>
-              <div className="bg-slate-50/50 dark:bg-white/[0.02] p-4 rounded-2xl border border-slate-100 dark:border-white/5">
-                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 leading-none">Labour Yield</p>
-                 <p className="text-xl sm:text-2xl font-[1000] text-slate-900 dark:text-white italic tracking-tighter leading-none">₹{labourAmount.toLocaleString('en-IN')}</p>
-                 <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-2">{lot.totalBags || 0} Bags × ₹{lot.labour_commission_rate}</p>
-              </div>
-           </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-8">
+            <div className="bg-slate-50/50 dark:bg-white/[0.02] p-4 rounded-2xl border border-slate-100 dark:border-white/5">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 leading-none">Trader Revenue</p>
+              <p className="text-xl sm:text-2xl font-[1000] text-slate-900 dark:text-white italic tracking-tighter leading-none">₹{traderAmount.toLocaleString('en-IN')}</p>
+              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-2">{lot.totalBags || 0} Bags × ₹{lot.dealer_commission_rate}</p>
+            </div>
+            <div className="bg-slate-50/50 dark:bg-white/[0.02] p-4 rounded-2xl border border-slate-100 dark:border-white/5">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 leading-none">Labour Yield</p>
+              <p className="text-xl sm:text-2xl font-[1000] text-slate-900 dark:text-white italic tracking-tighter leading-none">₹{labourAmount.toLocaleString('en-IN')}</p>
+              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-2">{lot.totalBags || 0} Bags × ₹{lot.labour_commission_rate}</p>
+            </div>
+          </div>
 
-           <div className="bg-primary/5 dark:bg-primary/10 p-5 sm:p-6 rounded-3xl border border-primary/20 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                 <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-1">Cumulative Manifest Gross</p>
-                 <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Paddy + Service Fees</p>
-              </div>
-              <p className="text-2xl sm:text-3xl font-[1000] text-primary italic tracking-tighter tabular-nums leading-none">₹{combinedGrossAmount.toLocaleString('en-IN')}</p>
-           </div>
+          <div className="bg-primary/5 dark:bg-primary/10 p-5 sm:p-6 rounded-3xl border border-primary/20 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <p className="text-[10px] font-black text-primary uppercase tracking-[0.2em] mb-1">Cumulative Manifest Gross</p>
+              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Paddy + Service Fees</p>
+            </div>
+            <p className="text-2xl sm:text-3xl font-[1000] text-primary italic tracking-tighter tabular-nums leading-none">₹{combinedGrossAmount.toLocaleString('en-IN')}</p>
+          </div>
         </div>
 
         {/* DEDUCTION SUMMARY */}
         <div className="bg-white dark:bg-slate-900 rounded-[32px] md:rounded-[40px] p-6 sm:p-8 md:p-10 border border-slate-100 dark:border-white/5 shadow-sm space-y-6 sm:space-y-8">
-           <div className="flex items-center justify-between">
-              <div>
-                 <h5 className="text-[11px] sm:text-[12px] font-black text-slate-900 dark:text-white uppercase tracking-[0.2em] italic">Quality & Adjustments</h5>
-                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Audit Penalties & Deductions</p>
-              </div>
-              <button
-                onClick={() => onEditDeductions(lot)}
-                className="p-3 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white rounded-xl transition-all border border-rose-500/20 shrink-0"
-              >
-                <Edit3 className="w-4 h-4" />
-              </button>
-           </div>
+          <div className="flex items-center justify-between">
+            <div>
+              <h5 className="text-[11px] sm:text-[12px] font-black text-slate-900 dark:text-white uppercase tracking-[0.2em] italic">Quality & Adjustments</h5>
+              <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-1">Audit Penalties & Deductions</p>
+            </div>
+            <button
+              onClick={() => onEditDeductions(lot)}
+              className="p-3 bg-rose-500/10 hover:bg-rose-500 text-rose-500 hover:text-white rounded-xl transition-all border border-rose-500/20 shrink-0"
+            >
+              <Edit3 className="w-4 h-4" />
+            </button>
+          </div>
 
-           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
-              <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/10">
-                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Moisture</p>
-                 <p className="text-sm sm:text-base font-black text-slate-900 dark:text-white leading-none">₹{moistureLoss.toLocaleString('en-IN')}</p>
-                 <p className="text-[7px] font-bold text-slate-400 uppercase mt-2">{moistureIndex.toFixed(1)}% Index</p>
-              </div>
-              <div className="p-4 rounded-2xl bg-rose-500/5 border border-rose-500/10">
-                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Bag Weight</p>
-                 <p className="text-sm sm:text-base font-black text-slate-900 dark:text-white leading-none">₹{bagPenalty.toLocaleString('en-IN')}</p>
-                 <p className="text-[7px] font-bold text-slate-400 uppercase mt-2">Deviation</p>
-              </div>
-              <div className="p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/10">
-                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Mill Fee</p>
-                 <p className="text-sm sm:text-base font-black text-slate-900 dark:text-white leading-none">₹{laborCost.toLocaleString('en-IN')}</p>
-                 <p className="text-[7px] font-bold text-slate-400 uppercase mt-2">Institutional</p>
-              </div>
-           </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
+            <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/10">
+              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Moisture</p>
+              <p className="text-sm sm:text-base font-black text-slate-900 dark:text-white leading-none">₹{moistureLoss.toLocaleString('en-IN')}</p>
+              <p className="text-[7px] font-bold text-slate-400 uppercase mt-2">{moistureIndex.toFixed(1)}% Index</p>
+            </div>
+            <div className="p-4 rounded-2xl bg-rose-500/5 border border-rose-500/10">
+              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Bag Weight</p>
+              <p className="text-sm sm:text-base font-black text-slate-900 dark:text-white leading-none">₹{bagPenalty.toLocaleString('en-IN')}</p>
+              <p className="text-[7px] font-bold text-slate-400 uppercase mt-2">Deviation</p>
+            </div>
+            <div className="p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/10">
+              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Mill Fee</p>
+              <p className="text-sm sm:text-base font-black text-slate-900 dark:text-white leading-none">₹{laborCost.toLocaleString('en-IN')}</p>
+              <p className="text-[7px] font-bold text-slate-400 uppercase mt-2">Institutional</p>
+            </div>
+          </div>
 
-           <div className="bg-rose-500/5 dark:bg-rose-500/10 p-5 sm:p-6 rounded-3xl border border-rose-500/20 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-              <div>
-                 <p className="text-[10px] font-black text-rose-500 uppercase tracking-[0.2em] mb-1">Total Audit Deductions</p>
-                 <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Aggregated Penalties</p>
-              </div>
-              <p className="text-2xl sm:text-3xl font-[1000] text-rose-500 italic tracking-tighter tabular-nums leading-none">₹{totalDeductions.toLocaleString('en-IN')}</p>
-           </div>
+          <div className="bg-rose-500/5 dark:bg-rose-500/10 p-5 sm:p-6 rounded-3xl border border-rose-500/20 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <p className="text-[10px] font-black text-rose-500 uppercase tracking-[0.2em] mb-1">Total Audit Deductions</p>
+              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Aggregated Penalties</p>
+            </div>
+            <p className="text-2xl sm:text-3xl font-[1000] text-rose-500 italic tracking-tighter tabular-nums leading-none">₹{totalDeductions.toLocaleString('en-IN')}</p>
+          </div>
         </div>
       </div>
 
