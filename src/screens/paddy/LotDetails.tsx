@@ -213,8 +213,7 @@ export default function LotDetails() {
            method: 'PATCH',
            headers: { 'Content-Type': 'application/json' },
            body: JSON.stringify({ 
-              post_load_scale: parseFloat(String(postLoadScale)) || 0,
-              traderId: user?.id
+              post_load_scale: parseFloat(String(postLoadScale)) || 0
            })
          });
          setLot(prev => ({
@@ -237,8 +236,7 @@ export default function LotDetails() {
            method: 'PATCH',
            headers: { 'Content-Type': 'application/json' },
            body: JSON.stringify({ 
-              pre_load_scale: parseFloat(String(preLoadScale)) || 0,
-              traderId: user?.id
+              pre_load_scale: parseFloat(String(preLoadScale)) || 0
            })
          });
          setLot(prev => ({

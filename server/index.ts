@@ -662,11 +662,26 @@ app.post('/api/lots', (req, res) => {
 // NEW: Generic Lot Update Endpoint
 app.patch('/api/lots/:id', (req, res) => {
   const { id } = req.params;
-  const updates = req.body; // Expect an object with keys matching lots table columns
-  const traderId = req.query.traderId as string;
+  const body = req.body;
+  
+  // Valid columns that can be patched
+  const validColumns = [
+    'name', 'type', 'weight', 'amount', 'stage', 'paymentStatus', 'date', 
+    'loaded_at', 'transit_at', 'delivered_at', 'quality_checked_at', 'paid_at',
+    'load_area', 'mill_name', 'empty_bags', 'driver_mobile', 'photo_path',
+    'vehicle_type', 'reg_number', 'gratuity', 'machine_cost', 'machine_id',
+    'labour_group_id', 'weigh_scale_kgs', 'settled_at', 'pre_load_scale', 'post_load_scale'
+  ];
+
+  const updates: any = {};
+  Object.keys(body).forEach(key => {
+    if (validColumns.includes(key)) {
+      updates[key] = body[key];
+    }
+  });
 
   if (Object.keys(updates).length === 0) {
-    return res.status(400).json({ error: 'At least one field must be provided for update' });
+    return res.status(400).json({ error: 'No valid fields provided for update' });
   }
 
   try {
