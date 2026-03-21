@@ -614,7 +614,7 @@ app.get('/api/lots/count/:year', (req, res) => {
 });
 
 app.post('/api/lots', (req, res) => {
-  const { id, name, type, weight, weighScaleKgs, date, load_area, mill_name, empty_bags, driver_mobile, photo_path, vehicle_type, reg_number, gratuity, labour_group_id, traderId } = req.body;
+  const { id, name, type, weight, weighScaleKgs, date, load_area, mill_name, empty_bags, driver_mobile, photo_path, vehicle_type, reg_number, gratuity, labour_group_id, traderId, pre_load_scale } = req.body;
 
   if (!id || !name || !type || !weight || !date) {
     return res.status(400).json({ error: 'All primary fields (ID, Name, Type, Weight, Date) are required' });
@@ -622,8 +622,8 @@ app.post('/api/lots', (req, res) => {
 
   try {
     const insert = db.prepare(`
-      INSERT INTO lots (id, name, type, weight, amount, stage, paymentStatus, date, load_area, mill_name, empty_bags, driver_mobile, photo_path, vehicle_type, reg_number, gratuity, labour_group_id, weigh_scale_kgs, trader_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO lots (id, name, type, weight, amount, stage, paymentStatus, date, load_area, mill_name, empty_bags, driver_mobile, photo_path, vehicle_type, reg_number, gratuity, labour_group_id, weigh_scale_kgs, trader_id, pre_load_scale)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `);
     
     insert.run(
@@ -645,7 +645,8 @@ app.post('/api/lots', (req, res) => {
       parseInt(gratuity) || 0,
       labour_group_id || null,
       weighScaleKgs || '',
-      traderId || null
+      traderId || null,
+      parseFloat(pre_load_scale) || 0
     );
     
     res.json({ success: true, id });

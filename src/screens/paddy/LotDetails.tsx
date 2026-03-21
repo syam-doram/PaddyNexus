@@ -51,7 +51,9 @@ export default function LotDetails() {
   const [editGratuity, setEditGratuity] = useState(lot.gratuity || 0);
   const [isEditingGratuity, setIsEditingGratuity] = useState(false);
   const [postLoadScale, setPostLoadScale] = useState(lot.post_load_scale || 0);
+  const [preLoadScale, setPreLoadScale] = useState(lot.pre_load_scale || 0);
   const [isEditingPostScale, setIsEditingPostScale] = useState(false);
+  const [isEditingPreScale, setIsEditingPreScale] = useState(false);
   const [isDetailsExpanded, setIsDetailsExpanded] = useState(true);
 
   const totalBags = batches.reduce((acc, curr) => acc + (parseInt(curr.bags) || 0), 0);
@@ -78,6 +80,7 @@ export default function LotDetails() {
         setEditMillName(data.mill_name || data.mill || '');
         setEditGratuity(data.gratuity || 0);
         setPostLoadScale(data.post_load_scale || 0);
+        setPreLoadScale(data.pre_load_scale || 0);
       })
       .catch(err => console.error("Error fetching lot details:", err));
 
@@ -220,6 +223,30 @@ export default function LotDetails() {
          }));
        } catch (err) {
          console.error("Failed to save post-load scale", err);
+       }
+    }
+  };
+
+  const handleSavePreScale = async () => {
+    setIsEditingPreScale(!isEditingPreScale);
+    if (isEditingPreScale) {
+       try {
+         let url = `${API_BASE_URL}/lots/${encodeURIComponent(lot.id)}`;
+         if (user?.id) url += `?traderId=${user.id}`;
+         await fetch(url, {
+           method: 'PATCH',
+           headers: { 'Content-Type': 'application/json' },
+           body: JSON.stringify({ 
+              pre_load_scale: parseFloat(String(preLoadScale)) || 0,
+              traderId: user?.id
+           })
+         });
+         setLot(prev => ({
+           ...prev,
+           pre_load_scale: parseFloat(String(preLoadScale)) || 0
+         }));
+       } catch (err) {
+         console.error("Failed to save pre-load scale", err);
        }
     }
   };
@@ -391,10 +418,29 @@ export default function LotDetails() {
 
                         <div className="grid grid-cols-2 gap-4">
                             <div className="bg-slate-50 dark:bg-white/5 p-4 rounded-2xl border border-slate-100 dark:border-white/5">
-                                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Unladen (Start)</p>
+                                <div className="flex justify-between items-center mb-2">
+                                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Unladen (Start)</p>
+                                    <button 
+                                        onClick={handleSavePreScale}
+                                        className="p-1 text-slate-400 hover:text-primary transition-all"
+                                    >
+                                        {isEditingPreScale ? <Check className="w-3 h-3" /> : <Pencil className="w-3 h-3" />}
+                                    </button>
+                                </div>
                                 <div className="flex items-center gap-2">
-                                    <Scale className="w-4 h-4 text-slate-300" />
-                                    <p className="text-xl font-[1000] text-slate-900 dark:text-white italic tabular-nums">{(lot.pre_load_scale || 0).toLocaleString('en-IN')} <span className="text-[10px] text-slate-400 not-italic">KG</span></p>
+                                    {isEditingPreScale ? (
+                                        <input 
+                                            type="number"
+                                            value={preLoadScale}
+                                            onChange={e => setPreLoadScale(Number(e.target.value))}
+                                            className="w-full bg-white dark:bg-slate-900 border-none rounded-lg px-2 py-1 text-sm font-black focus:ring-2 focus:ring-primary/40"
+                                        />
+                                    ) : (
+                                        <>
+                                            <Scale className="w-4 h-4 text-slate-300" />
+                                            <p className="text-xl font-[1000] text-slate-900 dark:text-white italic tabular-nums">{(preLoadScale || 0).toLocaleString('en-IN')} <span className="text-[10px] text-slate-400 not-italic">KG</span></p>
+                                        </>
+                                    )}
                                 </div>
                             </div>
                             <div className="bg-slate-50 dark:bg-white/5 p-4 rounded-2xl border border-slate-100 dark:border-white/5">
@@ -422,13 +468,13 @@ export default function LotDetails() {
                                 <div>
                                     <p className="text-[8px] font-black text-primary uppercase tracking-widest mb-0.5">Calculated Net Yield</p>
                                     <p className="text-2xl font-[1000] text-background-dark dark:text-primary italic tabular-nums">
-                                        {(Math.max(0, postLoadScale - (lot.pre_load_scale || 0))).toLocaleString('en-IN')} <span className="text-xs not-italic">KG</span>
+                                        {(Math.max(0, postLoadScale - preLoadScale)).toLocaleString('en-IN')} <span className="text-xs not-italic">KG</span>
                                     </p>
                                 </div>
                                 <div className="text-right">
                                     <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">In Quintals</p>
                                     <p className="text-sm font-black text-slate-900 dark:text-white italic tabular-nums">
-                                        {(Math.max(0, postLoadScale - (lot.pre_load_scale || 0)) / 100).toFixed(2)} Q
+                                        {(Math.max(0, postLoadScale - preLoadScale) / 100).toFixed(2)} Q
                                     </p>
                                 </div>
                             </div>
