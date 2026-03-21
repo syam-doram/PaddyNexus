@@ -105,6 +105,8 @@ db.exec(`
     weigh_scale_kgs TEXT,
     settled_at TEXT,
     trader_id INTEGER,
+    pre_load_scale REAL DEFAULT 0,
+    post_load_scale REAL DEFAULT 0,
     FOREIGN KEY(machine_id) REFERENCES machines(id),
     FOREIGN KEY(labour_group_id) REFERENCES labour_groups(id),
     FOREIGN KEY(trader_id) REFERENCES users(id)
@@ -440,5 +442,23 @@ tablesToMigrate.forEach(table => {
     }
   }
 });
+
+try {
+  db.prepare("ALTER TABLE lots ADD COLUMN pre_load_scale REAL DEFAULT 0").run();
+  console.log("Migration: Added pre_load_scale column to lots");
+} catch (err: any) {
+  if (!err.message.includes("duplicate column name")) {
+    console.error("Migration error (add pre_load_scale):", err.message);
+  }
+}
+
+try {
+  db.prepare("ALTER TABLE lots ADD COLUMN post_load_scale REAL DEFAULT 0").run();
+  console.log("Migration: Added post_load_scale column to lots");
+} catch (err: any) {
+  if (!err.message.includes("duplicate column name")) {
+    console.error("Migration error (add post_load_scale):", err.message);
+  }
+}
 
 export default db;

@@ -58,6 +58,8 @@ export default function AddLot() {
 
 
 
+  const [preLoadScale, setPreLoadScale] = useState('');
+
   useEffect(() => {
     const fetchCount = async () => {
       const year = date.split('-')[0];
@@ -180,7 +182,8 @@ export default function AddLot() {
           reg_number: regNumber,
           gratuity: parseInt(gratuity) || 0,
           labour_group_id: selectedLabourGroupId,
-          traderId: user?.id
+          traderId: user?.id,
+          pre_load_scale: parseFloat(preLoadScale) || 0
         })
       });
 
@@ -250,7 +253,7 @@ export default function AddLot() {
                             <h3 className="text-[12px] md:text-sm font-black text-slate-400 uppercase tracking-[0.2em]">Registry Identity</h3>
                         </div>
 
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
                             <div className="space-y-1.5 md:space-y-2">
                                 <label className="text-[9px] md:text-[10px] font-black text-primary uppercase tracking-widest block ml-1">Harvest Date</label>
                                 <div className="relative">
@@ -274,6 +277,20 @@ export default function AddLot() {
                                         onChange={(e) => setLotId(e.target.value)}
                                         placeholder="Generating..."
                                         className="w-full bg-slate-50 dark:bg-slate-900/50 border-none rounded-xl md:rounded-2xl pl-12 pr-6 py-2.5 md:py-3.5 text-lg md:text-xl font-black text-primary uppercase italic focus:ring-2 focus:ring-primary/40 transition-all placeholder:text-slate-300"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-1.5 md:space-y-2">
+                                <label className="text-[9px] md:text-[10px] font-black text-primary uppercase tracking-widest block ml-1">Pre-Load Scale Read</label>
+                                <div className="relative">
+                                    <Scale className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-slate-400" />
+                                    <input 
+                                        type="number"
+                                        value={preLoadScale}
+                                        onChange={(e) => setPreLoadScale(e.target.value)}
+                                        placeholder="0 (KG)"
+                                        className="w-full bg-slate-50 dark:bg-slate-900/50 border-none rounded-xl md:rounded-2xl pl-12 pr-6 py-2.5 md:py-3.5 text-sm md:text-base font-black focus:ring-2 focus:ring-primary/40 transition-all"
                                     />
                                 </div>
                             </div>

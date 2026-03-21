@@ -50,6 +50,8 @@ export default function LotDetails() {
   const [editMillName, setEditMillName] = useState(lot.mill_name || lot.mill || '');
   const [editGratuity, setEditGratuity] = useState(lot.gratuity || 0);
   const [isEditingGratuity, setIsEditingGratuity] = useState(false);
+  const [postLoadScale, setPostLoadScale] = useState(lot.post_load_scale || 0);
+  const [isEditingPostScale, setIsEditingPostScale] = useState(false);
   const [isDetailsExpanded, setIsDetailsExpanded] = useState(true);
 
   const totalBags = batches.reduce((acc, curr) => acc + (parseInt(curr.bags) || 0), 0);
@@ -75,6 +77,7 @@ export default function LotDetails() {
         setEditLoadArea(data.load_area || '');
         setEditMillName(data.mill_name || data.mill || '');
         setEditGratuity(data.gratuity || 0);
+        setPostLoadScale(data.post_load_scale || 0);
       })
       .catch(err => console.error("Error fetching lot details:", err));
 
@@ -194,6 +197,30 @@ export default function LotDetails() {
       } catch (err) {
         console.error("Failed to save gratuity", err);
       }
+    }
+  };
+
+  const handleSavePostScale = async () => {
+    setIsEditingPostScale(!isEditingPostScale);
+    if (isEditingPostScale) {
+       try {
+         let url = `${API_BASE_URL}/lots/${encodeURIComponent(lot.id)}`;
+         if (user?.id) url += `?traderId=${user.id}`;
+         await fetch(url, {
+           method: 'PATCH',
+           headers: { 'Content-Type': 'application/json' },
+           body: JSON.stringify({ 
+              post_load_scale: parseFloat(String(postLoadScale)) || 0,
+              traderId: user?.id
+           })
+         });
+         setLot(prev => ({
+           ...prev,
+           post_load_scale: parseFloat(String(postLoadScale)) || 0
+         }));
+       } catch (err) {
+         console.error("Failed to save post-load scale", err);
+       }
     }
   };
 
@@ -344,6 +371,68 @@ export default function LotDetails() {
                                 <p className="text-xl lg:text-2xl font-[1000] italic leading-none">13.5<span className="text-[10px] text-primary">%</span></p>
                             </div>
                          </div>
+                    </section>
+
+                    <section className="bg-white dark:bg-[#0F172A] rounded-[24px] lg:rounded-[32px] p-5 lg:p-6 shadow-sm border border-slate-100 dark:border-white/5 relative overflow-hidden group">
+                        <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-transparent via-blue-500/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                        
+                        <div className="flex justify-between items-center mb-6">
+                            <div className="flex flex-col">
+                                <span className="text-[9px] lg:text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] leading-none mb-1 text-blue-500">Asset Weight</span>
+                                <h3 className="text-lg lg:text-xl font-[1000] text-slate-900 dark:text-white uppercase italic tracking-tighter leading-none">Scale Intelligence</h3>
+                            </div>
+                            <button 
+                                onClick={handleSavePostScale}
+                                className="p-2 lg:p-2.5 bg-slate-50 dark:bg-white/5 text-slate-400 rounded-xl hover:bg-blue-500 hover:text-white transition-all border border-slate-100 dark:border-white/5"
+                            >
+                                {isEditingPostScale ? <Check className="w-4 h-4" /> : <Pencil className="w-4 h-4" />}
+                            </button>
+                        </div>
+
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="bg-slate-50 dark:bg-white/5 p-4 rounded-2xl border border-slate-100 dark:border-white/5">
+                                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Unladen (Start)</p>
+                                <div className="flex items-center gap-2">
+                                    <Scale className="w-4 h-4 text-slate-300" />
+                                    <p className="text-xl font-[1000] text-slate-900 dark:text-white italic tabular-nums">{(lot.pre_load_scale || 0).toLocaleString('en-IN')} <span className="text-[10px] text-slate-400 not-italic">KG</span></p>
+                                </div>
+                            </div>
+                            <div className="bg-slate-50 dark:bg-white/5 p-4 rounded-2xl border border-slate-100 dark:border-white/5">
+                                <p className="text-[8px] font-black text-blue-500 uppercase tracking-widest mb-2">Laden (Final)</p>
+                                <div className="flex items-center gap-2">
+                                    {isEditingPostScale ? (
+                                        <input 
+                                            type="number"
+                                            value={postLoadScale}
+                                            onChange={e => setPostLoadScale(Number(e.target.value))}
+                                            className="w-full bg-white dark:bg-slate-900 border-none rounded-lg px-2 py-1 text-sm font-black focus:ring-2 focus:ring-blue-500/40"
+                                        />
+                                    ) : (
+                                        <>
+                                            <Scale className="w-4 h-4 text-blue-400" />
+                                            <p className="text-xl font-[1000] text-slate-900 dark:text-white italic tabular-nums">{(postLoadScale || 0).toLocaleString('en-IN')} <span className="text-[10px] text-slate-400 not-italic">KG</span></p>
+                                        </>
+                                    )}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="mt-4 bg-primary/10 rounded-2xl p-4 border border-primary/20">
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <p className="text-[8px] font-black text-primary uppercase tracking-widest mb-0.5">Calculated Net Yield</p>
+                                    <p className="text-2xl font-[1000] text-background-dark dark:text-primary italic tabular-nums">
+                                        {(Math.max(0, postLoadScale - (lot.pre_load_scale || 0))).toLocaleString('en-IN')} <span className="text-xs not-italic">KG</span>
+                                    </p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">In Quintals</p>
+                                    <p className="text-sm font-black text-slate-900 dark:text-white italic tabular-nums">
+                                        {(Math.max(0, postLoadScale - (lot.pre_load_scale || 0)) / 100).toFixed(2)} Q
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
                     </section>
                 </div>
 
