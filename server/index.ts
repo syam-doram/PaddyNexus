@@ -1924,7 +1924,7 @@ app.get('/api/mill-settlements', (req, res) => {
             l.mill_name,
             l.stage,
             SUM(b.bags) as bags,
-            SUM(b.bags * COALESCE(lr.rate, 1200)) as gross,
+            SUM(b.bags * COALESCE(lr.rate, 1200) + b.bags * COALESCE(cr.bag_rate, 0) + b.bags * COALESCE(cr.labour_rate, 0)) as gross,
             AVG(CAST(REPLACE(b.moisture, '%', '') AS REAL)) as avg_moisture,
             COALESCE(l.manual_deductions_applied, 0) as manual_deductions_applied,
             l.moisture_loss,
@@ -1933,6 +1933,7 @@ app.get('/api/mill-settlements', (req, res) => {
           FROM lots l
           JOIN batches b ON l.id = b.lotId
           LEFT JOIN lot_rates lr ON l.id = lr.lotId
+          LEFT JOIN commission_rates cr ON CAST(SUBSTR(l.date, 1, 4) AS INTEGER) = cr.year
           WHERE l.date LIKE ? `;
     
     const params: any[] = [`${targetYear}-%`];
@@ -2010,8 +2011,10 @@ app.get('/api/mill-settlements/:millId', (req, res) => {
         END as totalWeightTons,
         (SELECT paddyType FROM batches WHERE lotId = l.id LIMIT 1) as paddyType,
         CASE 
-          WHEN l.post_load_scale > 0 AND l.pre_load_scale > 0 THEN ((l.post_load_scale - l.pre_load_scale) / 100.0 * COALESCE(lr.rate, 1200))
-          ELSE (SUM(b.bags) * 73.0 / 100.0 * COALESCE(lr.rate, 1200))
+          WHEN l.post_load_scale > 0 AND l.pre_load_scale > 0 THEN 
+            ((l.post_load_scale - l.pre_load_scale) * (COALESCE(lr.rate, 1200) / 73.0)) + (SUM(b.bags) * COALESCE(cr.bag_rate, 0)) + (SUM(b.bags) * COALESCE(cr.labour_rate, 0))
+          ELSE 
+            (SUM(b.bags) * COALESCE(lr.rate, 1200)) + (SUM(b.bags) * COALESCE(cr.bag_rate, 0)) + (SUM(b.bags) * COALESCE(cr.labour_rate, 0))
         END as totalAmount,
         AVG(CAST(REPLACE(b.moisture, '%', '') AS REAL)) as avgMoisture,
         COALESCE(lr.rate, 1200) as paddyRate,

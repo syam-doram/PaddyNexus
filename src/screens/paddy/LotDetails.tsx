@@ -64,7 +64,10 @@ export default function LotDetails() {
   const totalCommission = totalBags * (commissionRate || 0);
   const totalLabourCommission = totalBags * (labourCommissionRate || 0);
   const totalDealerEarnings = totalCommission + totalLabourCommission;
-  const totalValue = totalBags * (parseFloat(lotRate) || 0);
+  const currentWeightKgs = (postLoadScale > 0 && preLoadScale > 0) 
+    ? (postLoadScale - preLoadScale) 
+    : (totalBags * 73);
+  const totalValue = currentWeightKgs * ((parseFloat(lotRate) || 1200) / 73);
   
   const isDelivered = lot.stage && !['LOADING', 'LOADED', 'IN TRANSIT'].includes(lot.stage.toUpperCase());
 
