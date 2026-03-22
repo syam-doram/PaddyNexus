@@ -917,104 +917,91 @@ app.get('/api/trader/earnings-summary', (req, res) => {
   }
 });
 
-app.get('/api/trader/machine-summary', (req, res) => {
-  const { filter } = req.query;
+app.get('/api/trader/machine-summary', async (req, res) => {
+  const { filter, traderId } = req.query;
   try {
-    let dateCondition = "1=1";
+    let dateFilter = {};
+    const now = new Date();
     if (filter === 'Today') {
-      dateCondition = "date(date) = date('now')";
+      const today = new Date(now.setHours(0,0,0,0)).toISOString();
+      dateFilter = { date: { $gte: today } };
     } else if (filter === 'Week') {
-      dateCondition = "date(date) >= date('now', '-7 days')";
+      const weekAgo = new Date(now.setDate(now.getDate() - 7)).toISOString();
+      dateFilter = { date: { $gte: weekAgo } };
     } else if (filter === 'Month') {
-      dateCondition = "date(date) >= date('now', 'start of month')";
+      const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
+      dateFilter = { date: { $gte: startOfMonth } };
     } else if (filter === 'Year') {
-      dateCondition = "date(date) >= date('now', 'start of year')";
+      const startOfYear = new Date(now.getFullYear(), 0, 1).toISOString();
+      dateFilter = { date: { $gte: startOfYear } };
     }
 
-    // 1. Get machine revenue and hours from machine_logs with date filter and trader isolation
-    let statsQuery = `
-      SELECT 
-        ml.machine_id,
-        SUM(ml.total_amount) as revenue,
-        SUM(ml.hours) as hours,
-        SUM(ml.acres) as acres,
-        SUM(ml.fuel_cost) as fuel
-      FROM machine_logs ml
-      JOIN machines m ON ml.machine_id = m.id
-      WHERE ${dateCondition}
-    `;
-    const statsParams: any[] = [];
-    const { traderId } = req.query;
-    const cleanTraderId = traderId ? cleanMachineId(traderId as string) : null;
+    const machineQuery: any = {};
+    if (traderId) machineQuery.trader_id = traderId;
 
-    if (cleanTraderId) {
-      statsQuery += ` AND m.trader_id = ? `;
-      statsParams.push(cleanTraderId);
-    }
+    const machinesList = await Machine.find(machineQuery);
+    const machineIds = machinesList.map(m => m.id);
 
-    statsQuery += ` GROUP BY ml.machine_id `;
-    const machineStats = db.prepare(statsQuery).all(...statsParams) as any[];
+    const logs = await MachineLog.find({
+      machine_id: { $in: machineIds },
+      ...dateFilter
+    });
 
-    // 2. Get machine details with operator info and settlement status
-    const targetYear = new Date().getFullYear();
-    let machineQuery = `
-      SELECT m.*, o.name as operator_name, mss.settled_at, mss.is_settled
-      FROM machines m
-      LEFT JOIN operators o ON m.operator = o.id
-      LEFT JOIN machine_settlement_status mss ON m.id = mss.machine_id AND mss.year = ?
-      `;
-      const machineParams: any[] = [targetYear];
+    const machineStatsMap = new Map();
+    logs.forEach(log => {
+      if (!machineStatsMap.has(log.machine_id)) {
+        machineStatsMap.set(log.machine_id, { revenue: 0, hours: 0, acres: 0, fuel: 0 });
+      }
+      const s = machineStatsMap.get(log.machine_id);
+      s.revenue += (log.total_amount || 0);
+      s.hours += (log.hours || 0);
+      s.acres += (log.acres || 0);
+      s.fuel += (log.fuel_cost || 0);
+    });
 
-    if (cleanTraderId) {
-      machineQuery += ` WHERE m.trader_id = ? `;
-      machineParams.push(cleanTraderId);
-    }
+    const targetYear = new Date().getFullYear().toString();
+    const settlementStatuses = await SettlementStatus.find({ year: targetYear, machine_id: { $in: machineIds } });
+    const operatorList = await Operator.find({ id: { $in: machinesList.map(m => m.operator).filter(Boolean) } });
 
-    const machines = db.prepare(machineQuery).all(...machineParams) as any[];
+    const machineTypes = [...new Set(machinesList.map(m => m.model).filter(Boolean))];
+    let totalRev = 0;
+    let totalFuelCost = 0;
 
-    const machineTypes = [...new Set(machines.map(m => m.model))];
+    const fleet = machinesList.map(m => {
+      const stat = machineStatsMap.get(m.id) || { revenue: 0, hours: 0, acres: 0, fuel: 0 };
+      const settle = settlementStatuses.find(s => s.machine_id === m.id);
+      const op = operatorList.find(o => o.id === m.operator);
+      
+      totalRev += stat.revenue;
+      totalFuelCost += stat.fuel;
 
-    const totalRevenue = machineStats.reduce((acc, m) => acc + (m.revenue || 0), 0);
-    const totalFuel = machineStats.reduce((acc, m) => acc + (m.fuel || 0), 0);
-    const totalProfit = totalRevenue - totalFuel;
-
-    const highlights = machineStats.map(stat => {
-      const machine = machines.find(m => m.id === stat.machine_id);
       return {
-        id: stat.machine_id,
-        name: machine?.name || 'Unknown',
-        operatorName: machine?.operator_name || 'No Operator',
-        type: machine?.model || 'Other',
-        hours: `${stat.hours || 0} hrs`,
-        acres: `${stat.acres || 0} ac`,
-        revenue: `₹${(stat.revenue || 0).toLocaleString()}`,
-        status: machine?.status || 'IDLE',
-        is_settled: machine?.is_settled || 0,
-        settled_at: machine?.settled_at
-      };
-    }).sort((a,b) => parseFloat(b.revenue.replace(/[^0-9.-]+/g,"")) - parseFloat(a.revenue.replace(/[^0-9.-]+/g,""))).slice(0, 3);
-
-    const fleet = machines.map(m => {
-      const stat = machineStats.find(s => s.machine_id === m.id);
-      return {
-         id: m.id,
-         name: m.name,
-         type: m.model,
-         operatorName: m.operator_name || 'No Operator',
-         hours: `${stat?.hours || 0} hrs`,
-         acres: `${stat?.acres || 0} ac`,
-         revenue: `₹${(stat?.revenue || 0).toLocaleString()}`,
-         efficiency: stat?.hours ? `${Math.round(((stat.acres || 0) / stat.hours) * 100)}%` : '0%',
-         status: m.status,
-         is_settled: m.is_settled || 0,
-         settled_at: m.settled_at
+        id: m.id,
+        name: m.name,
+        type: m.model || 'Other',
+        operatorName: op?.name || 'No Operator',
+        hours: `${stat.hours} hrs`,
+        acres: `${stat.acres} ac`,
+        revenue: `₹${stat.revenue.toLocaleString()}`,
+        efficiency: stat.hours ? `${Math.round(((stat.acres || 0) / stat.hours) * 100)}%` : '0%',
+        status: m.status || 'IDLE',
+        is_settled: settle?.is_settled ? 1 : 0,
+        settled_at: settle?.settled_at
       };
     });
 
+    const highlights = [...fleet]
+      .sort((a, b) => {
+        const revA = parseFloat(a.revenue.replace(/[^0-9.-]+/g, ""));
+        const revB = parseFloat(b.revenue.replace(/[^0-9.-]+/g, ""));
+        return revB - revA;
+      })
+      .slice(0, 3);
+
     res.json({
-      totalRevenue: `₹${totalRevenue.toLocaleString()}`,
-      operatingExpenses: `₹${totalFuel.toLocaleString()}`,
-      netProfit: `₹${totalProfit.toLocaleString()}`,
+      totalRevenue: `₹${totalRev.toLocaleString()}`,
+      operatingExpenses: `₹${totalFuelCost.toLocaleString()}`,
+      netProfit: `₹${(totalRev - totalFuelCost).toLocaleString()}`,
       machineTypes,
       highlights,
       fleet
@@ -1025,72 +1012,59 @@ app.get('/api/trader/machine-summary', (req, res) => {
   }
 });
 
-app.post('/api/farmer-advances', (req, res) => {
+app.post('/api/farmer-advances', async (req, res) => {
   const { farmer_name, amount, date, description, lotId, traderId } = req.body;
   if (!farmer_name || !amount || !date) {
     return res.status(400).json({ error: 'Farmer name, amount, and date are required' });
   }
 
   try {
-    // Verify lot ownership if lotId is provided
     if (lotId && traderId) {
-      const lot = db.prepare('SELECT trader_id FROM lots WHERE id = ?').get(lotId) as any;
+      const lot = await Lot.findOne({ id: lotId });
       if (lot && lot.trader_id && lot.trader_id.toString() !== traderId.toString()) {
         return res.status(403).json({ error: 'Access denied: Unauthorized lot access' });
       }
     }
 
-    const insert = db.prepare(`
-      INSERT INTO farmer_advances (farmer_name, amount, date, description, lotId)
-      VALUES (?, ?, ?, ?, ?)
-    `);
-    const result = insert.run(farmer_name, amount, date, description || '', lotId || null);
-    res.json({ success: true, id: result.lastInsertRowid });
+    const advance = new FarmerAdvance({
+      farmer_name,
+      amount,
+      date,
+      description: description || '',
+      lotId: lotId || null,
+      trader_id: traderId || null
+    });
+    
+    const result = await advance.save();
+    res.json({ success: true, id: result._id });
   } catch (error) {
     console.error("Database error (farmer-advances):", error);
     res.status(500).json({ error: 'Internal Server Error', message: (error as any).message });
   }
 });
 
-app.patch('/api/lots/:id/machine-cost', (req, res) => {
+app.patch('/api/lots/:id/machine-cost', async (req, res) => {
   const { id } = req.params;
   const { machine_cost, machine_id, machine_hours, machine_rate } = req.body;
-  const traderId = req.query.traderId as string;
+  const { traderId } = req.query;
 
   try {
-    const updates: string[] = [];
-    const params: any[] = [];
+    const update: any = {};
+    if (machine_cost !== undefined) update.machine_cost = machine_cost;
+    if (machine_id !== undefined) update.machine_id = machine_id;
+    if (machine_hours !== undefined) update.machine_hours = machine_hours;
+    if (machine_rate !== undefined) update.machine_rate = machine_rate;
 
-    if (machine_cost !== undefined) {
-      updates.push('machine_cost = ?');
-      params.push(machine_cost);
-    }
-    if (machine_id !== undefined) {
-      updates.push('machine_id = ?');
-      params.push(machine_id);
-    }
-    if (machine_hours !== undefined) {
-      updates.push('machine_hours = ?');
-      params.push(machine_hours);
-    }
-    if (machine_rate !== undefined) {
-      updates.push('machine_rate = ?');
-      params.push(machine_rate);
-    }
-
-    if (updates.length === 0) {
+    if (Object.keys(update).length === 0) {
       return res.status(400).json({ error: 'No fields provided for update' });
     }
 
-    params.push(id);
-    let sql = `UPDATE lots SET ${updates.join(', ')} WHERE id = ?`;
-    if (req.query.traderId) {
-       sql += ` AND trader_id = ?`;
-       params.push(req.query.traderId);
-    }
-    const result = db.prepare(sql).run(...params);
+    const filter: any = { id };
+    if (traderId) filter.trader_id = traderId;
 
-    if (result.changes === 0) {
+    const result = await Lot.findOneAndUpdate(filter, { $set: update }, { new: true });
+
+    if (!result) {
       return res.status(404).json({ error: 'Lot not found' });
     }
     res.json({ success: true, machine_cost, machine_id, machine_hours, machine_rate });
