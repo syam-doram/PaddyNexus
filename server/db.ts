@@ -191,7 +191,25 @@ const FarmerAdvanceSchema = new mongoose.Schema({
   trader_id: { type: String }
 });
 
-// Lot Rates Schema
+// Machine Advance Schema
+const MachineAdvanceSchema = new mongoose.Schema({
+  machine_id: { type: String, required: true },
+  amount: { type: Number, required: true },
+  date: { type: String, required: true },
+  description: String,
+  trader_id: { type: String }
+});
+
+// Mill Payment Schema
+const MillPaymentSchema = new mongoose.Schema({
+  mill_id: { type: String, required: true },
+  amount: { type: Number, required: true },
+  date: { type: String, required: true },
+  description: String,
+  lotId: String,
+  trader_id: { type: String }
+});
+
 const LotRateSchema = new mongoose.Schema({
   lotId: { type: String, required: true, unique: true },
   rate: { type: Number, required: true }
@@ -212,6 +230,8 @@ export const PaddyMarket = mongoose.model('PaddyMarket', PaddyMarketSchema);
 export const Silo = mongoose.model('Silo', SiloSchema);
 export const SettlementStatus = mongoose.model('SettlementStatus', SettlementStatusSchema);
 export const FarmerAdvance = mongoose.model('FarmerAdvance', FarmerAdvanceSchema);
+export const MachineAdvance = mongoose.model('MachineAdvance', MachineAdvanceSchema);
+export const MillPayment = mongoose.model('MillPayment', MillPaymentSchema);
 export const LotRate = mongoose.model('LotRate', LotRateSchema);
 
 const db = {

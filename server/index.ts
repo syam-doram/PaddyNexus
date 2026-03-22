@@ -1,7 +1,7 @@
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { User, Lot, Batch, Machine, MachineLog, CommissionRate, Mill, LabourGroup, LabourMember, Operator, PaddyMarket, Silo, SettlementStatus, FarmerAdvance, LotRate } from './db.js';
+import { User, Lot, Batch, Machine, MachineLog, CommissionRate, Mill, LabourGroup, LabourMember, Operator, PaddyMarket, Silo, SettlementStatus, FarmerAdvance, MachineAdvance, MillPayment, LotRate } from './db.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -1544,26 +1544,20 @@ app.delete('/api/machines/:id', async (req, res) => {
   }
 });
 
-// DELETE Lot and associated data
-app.delete('/api/lots/:id', (req, res) => {
+app.delete('/api/lots/:id', async (req, res) => {
   const { id } = req.params;
-  const traderId = req.query.traderId as string;
+  const { traderId } = req.query;
   try {
-    db.transaction(() => {
-      if (traderId) {
-        const l = db.prepare('SELECT trader_id FROM lots WHERE id = ?').get(id) as any;
-        if (l && l.trader_id && l.trader_id.toString() !== traderId.toString()) {
-          throw new Error('Access denied: Unauthorized to delete this lot');
-        }
-      }
-      db.prepare('DELETE FROM batches WHERE lotId = ?').run(id);
-      db.prepare('DELETE FROM lot_rates WHERE lotId = ?').run(id);
-      db.prepare('DELETE FROM lots WHERE id = ?').run(id);
-    })();
+    const lot = await Lot.findOne({ id });
+    if (!lot) return res.status(404).json({ error: 'Lot not found' });
+    if (traderId && lot.trader_id && lot.trader_id.toString() !== traderId.toString()) return res.status(403).json({ error: 'Access denied' });
+
+    await Batch.deleteMany({ lotId: id });
+    await LotRate.deleteMany({ lotId: id });
+    await Lot.deleteOne({ id });
     res.json({ success: true, message: 'Lot and associated data deleted successfully' });
-  } catch (error) {
-    console.error("Database error (delete lot):", error);
-    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Internal Server Error', message: error.message });
   }
 });
 
@@ -1614,33 +1608,6 @@ app.post('/api/farmer-settlements/reopen', async (req, res) => {
 
 // MILL SETTLEMENT Endpoints
 
-app.get('/api/mill-settlements', (req, res) => {
-  const { year, traderId } = req.query;
-  const targetYear = year || new Date().getFullYear().toString();
-
-  try {
-    let query = `
-      SELECT 
-        m.id,
-        m.name,
-        m.location,
-        m.contact_person,
-        m.phone,
-        COALESCE(delivery_stats.totalBags, 0) as totalBags,
-        COALESCE(delivery_stats.netAmount, 0) as totalDeliveredAmount,
-        COALESCE(delivery_stats.settledLots, 0) as settledLots,
-        COALESCE(delivery_stats.pendingLots, 0) as pendingLots,
-        COALESCE(payment_stats.totalPaid, 0) as totalPaidAmount,
-        COALESCE(mss.is_settled, 0) as is_settled
-      FROM mills m
-      LEFT JOIN (
-        SELECT 
-          lot_summary.mill_name,
-          SUM(lot_summary.bags) as totalBags,
-          SUM(
-            CASE 
-              WHEN lot_summary.manual_deductions_applied = 1 THEN 
-                lot_summary.gross - (COALESCE(lot_summary.moisture_loss, 0) + COALESCE(lot_summary.bag_penalty, 0) + COALESCE(lot_summary.labor_cost, 0))
 app.get('/api/mill-settlements', async (req, res) => {
   const { year, traderId } = req.query;
   const targetYear = year || new Date().getFullYear().toString();
