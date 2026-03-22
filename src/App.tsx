@@ -8,13 +8,14 @@ import { Toast } from '@capacitor/toast';
 import * as Lazy from './screens/lazy';
 
 import MainLayout from './components/MainLayout';
+import SplashScreen from './components/SplashScreen';
 
 // Protected Route Wrapper
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactElement, allowedRoles?: Role[] }) => {
   const { isAuthenticated, user, loading } = useAuth();
   
   if (loading) {
-    return <div className="h-screen w-full bg-slate-900" />;
+    return <SplashScreen />;
   }
 
   if (!isAuthenticated) return <Navigate to="/login" replace />;
@@ -74,13 +75,13 @@ function AppContent() {
   }, []);
 
   if (loading) {
-    return <div className="h-screen w-full bg-slate-900" />;
+    return <SplashScreen />;
   }
 
   return (
     <ErrorBoundary>
       <div className={`h-screen w-full transition-colors duration-300 font-sans ${theme === 'dark' ? 'dark bg-background-dark text-white' : 'bg-[#f8fafc] text-slate-900'}`}>
-        <Suspense fallback={<div className="h-screen w-full bg-slate-900" />}>
+        <Suspense fallback={<SplashScreen />}>
           <Routes>
             {/* Root Route: Shows Onboarding only once */}
             <Route path="/" element={<RoleBasedHome />} />

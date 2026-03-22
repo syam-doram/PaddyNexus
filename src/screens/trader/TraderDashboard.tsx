@@ -48,7 +48,7 @@ export default function TraderDashboard() {
         if (lotsRes.ok) lotsList = await lotsRes.json();
         if (machinesRes.ok) machinesList = await machinesRes.json();
 
-        const activeMachines = machinesList.filter((m: any) => m.is_settled_year === 0);
+        const activeMachines = machinesList.filter((m: any) => m.is_settled === 0);
         const loadingLots = lotsList.filter((l: any) => l.stage === 'LOADING' || l.stage === 'LOADED' || l.stage === 'IN TRANSIT');
         const totalBags = lotsList.reduce((acc: number, curr: any) => acc + (curr.bags || 0), 0);
         const totalAcres = machinesList.reduce((acc: number, curr: any) => acc + (curr.totalAcres || 0), 0);

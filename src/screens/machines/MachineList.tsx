@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ArrowLeft, Search, SlidersHorizontal, ChevronLeft, ChevronRight, Clock, Map, User, Plus, Banknote, Calendar, Tractor, X, IndianRupee, Bell } from 'lucide-react';
 import { Machine, useMachines, formatDateToLocalISO } from '../../context/MachineContext';
+import { Capacitor } from '@capacitor/core';
 
 export default function MachineList() {
   const navigate = useNavigate();
@@ -43,6 +44,24 @@ export default function MachineList() {
 
   const availableCount = machines.filter(m => !m.dailyHours || Number(m.dailyHours) === 0).length;
   const workingCount = machines.filter(m => m.dailyHours && Number(m.dailyHours) > 0).length;
+
+  const getDisplayImage = (url?: string | null) => {
+    if (!url || url.trim() === "") return null;
+    
+    // Explicitly check for internal platform schemes
+    const isLocalPlatformPath = 
+      url.startsWith('http://localhost') || 
+      url.startsWith('capacitor://') || 
+      url.includes('_capacitor_file_') ||
+      url.startsWith('blob:');
+    
+    // If we're on web (not native) and the path is an internal one, block it
+    if (isLocalPlatformPath && !Capacitor.isNativePlatform()) {
+      return null;
+    }
+    
+    return url;
+  };
 
   return (
     <div className="relative flex h-full w-full flex-col bg-[#F8FAFC] dark:bg-background-dark font-display overflow-hidden">
@@ -133,8 +152,8 @@ export default function MachineList() {
                           >
                               <div className="flex gap-4 items-start mb-8">
                                   <div className="relative">
-                                      {machine.image ? (
-                                          <div className="w-[88px] h-[88px] rounded-[28px] bg-cover bg-center shrink-0 border-2 border-slate-100 dark:border-white/5 group-hover:scale-105 transition-transform" style={{ backgroundImage: `url(${machine.image})` }} />
+                                      {getDisplayImage(machine.image) ? (
+                                          <div className="w-[88px] h-[88px] rounded-[28px] bg-cover bg-center shrink-0 border-2 border-slate-100 dark:border-white/5 group-hover:scale-105 transition-transform" style={{ backgroundImage: `url(${getDisplayImage(machine.image)})` }} />
                                       ) : (
                                           <div className="w-[88px] h-[88px] rounded-[28px] bg-slate-50 dark:bg-slate-800 shrink-0 flex items-center justify-center border-2 border-slate-100 dark:border-white/5">
                                               <Tractor className="w-10 h-10 text-slate-300" />

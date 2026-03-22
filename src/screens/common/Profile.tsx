@@ -5,6 +5,7 @@ import { ArrowLeft, MapPin, Mountain, Tractor, Star, User, Banknote, Store, Bell
 import { useAuth } from '../../context/AuthContext';
 import { API_BASE_URL } from '../../config/apiConfig';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { Capacitor } from '@capacitor/core';
 import { AnimatePresence } from 'motion/react';
 
 export default function Profile() {
@@ -21,6 +22,14 @@ export default function Profile() {
   
   // Password Change State
   const [isChangingPassword, setIsChangingPassword] = useState(false);
+  
+  const getDisplayImage = (url?: string | null) => {
+    if (!url || url.trim() === "") return null;
+    const isLocal = url.startsWith('http://localhost') || url.startsWith('capacitor://') || url.includes('_capacitor_') || url.startsWith('blob:');
+    if (isLocal && !Capacitor.isNativePlatform()) return null;
+    return url;
+  };
+
   const [passwordForm, setPasswordForm] = useState({ old: '', new: '', confirm: '' });
   const [showPasswords, setShowPasswords] = useState({ old: false, new: false, confirm: false });
   const [passLoading, setPassLoading] = useState(false);
@@ -241,8 +250,8 @@ export default function Profile() {
               <div 
                 className="bg-center bg-no-repeat aspect-square bg-cover rounded-full h-28 w-28 md:h-32 md:w-32 shadow-lg ring-4 ring-white dark:ring-surface-dark overflow-hidden flex items-center justify-center bg-slate-100 dark:bg-slate-800" 
               >
-                {user?.image ? (
-                  <img src={user.image} className="w-full h-full object-cover" alt="Profile" />
+                {getDisplayImage(user?.image) ? (
+                  <img src={getDisplayImage(user?.image)!} className="w-full h-full object-cover" alt="Profile" />
                 ) : (
                   <User className="w-12 h-12 text-slate-400" />
                 )}

@@ -19,7 +19,7 @@ interface Machine {
   totalHours: number;
   totalAcres: number;
   totalAdvanceAmount: number;
-  is_settled_year: number;
+  is_settled: number;
 }
 
 export default function TraderFleet() {
@@ -52,8 +52,8 @@ export default function TraderFleet() {
     const matchesSearch = m.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                          m.operator.toLowerCase().includes(searchQuery.toLowerCase());
     const matchesFilter = filter === 'all' || 
-                         (filter === 'active' && m.is_settled_year === 0) ||
-                         (filter === 'settled' && m.is_settled_year === 1);
+                         (filter === 'active' && m.is_settled === 0) ||
+                         (filter === 'settled' && m.is_settled === 1);
     return matchesSearch && matchesFilter;
   });
 
@@ -129,7 +129,7 @@ export default function TraderFleet() {
                   <div className="p-8">
                     <div className="flex items-center justify-between mb-8">
                       <div className="flex items-center gap-5">
-                        <div className={`w-16 h-16 rounded-[24px] flex items-center justify-center transition-colors ${machine.is_settled_year ? 'bg-slate-100 text-slate-400' : 'bg-primary/10 text-primary group-hover:bg-primary group-hover:text-background-dark'}`}>
+                        <div className={`w-16 h-16 rounded-[24px] flex items-center justify-center transition-colors ${machine.is_settled ? 'bg-slate-100 text-slate-400' : 'bg-primary/10 text-primary group-hover:bg-primary group-hover:text-background-dark'}`}>
                           <Tractor className="w-8 h-8" />
                         </div>
                         <div>
@@ -137,8 +137,8 @@ export default function TraderFleet() {
                           <h3 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">{machine.name}</h3>
                         </div>
                       </div>
-                      <div className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-[0.2em] ${machine.is_settled_year ? 'bg-slate-100 dark:bg-white/5 text-slate-400' : 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'}`}>
-                        {machine.is_settled_year ? 'Settled' : 'Active'}
+                      <div className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-[0.2em] ${machine.is_settled ? 'bg-slate-100 dark:bg-white/5 text-slate-400' : 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'}`}>
+                        {machine.is_settled ? 'Settled' : 'Active'}
                       </div>
                     </div>
 

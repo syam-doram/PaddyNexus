@@ -47,7 +47,7 @@ export default function SignUp() {
     };
 
     return (
-        <div className="flex h-full w-full bg-[#F8FAFC] dark:bg-[#0F172A] font-display text-slate-900 dark:text-slate-100 overflow-hidden">
+        <div className="flex h-screen w-full bg-[#F8FAFC] dark:bg-[#0F172A] font-display text-slate-900 dark:text-slate-100 overflow-hidden select-none">
             {/* Left Column: Vision & Brand (Desktop) */}
             <div className="hidden lg:flex lg:col-span-1 w-1/2 relative overflow-hidden bg-slate-900 group">
                 <div
@@ -96,15 +96,23 @@ export default function SignUp() {
             </div>
 
             {/* Right Column: Registration Logic */}
-            <div className="flex-1 flex flex-col items-center relative overflow-y-auto no-scrollbar w-full bg-[#F8FAFC] dark:bg-[#0F172A]">
-                <div className="sticky top-0 bg-[#F8FAFC]/95 dark:bg-[#0F172A]/95 backdrop-blur-md flex items-center gap-4 z-40 w-full px-6 lg:px-20 py-8 border-b border-slate-100 dark:border-white/5 lg:border-none">
-                    <span className="lg:hidden text-lg font-black uppercase tracking-tighter">Paddy<span className="text-primary underline decoration-emerald-500">Nexus</span></span>
+            <div className="flex-1 flex flex-col items-center relative overflow-y-auto overflow-x-hidden no-scrollbar w-full bg-[#F8FAFC] dark:bg-[#0F172A] scroll-smooth">
+                <div className="sticky top-0 bg-[#F8FAFC]/95 dark:bg-[#0F172A]/95 backdrop-blur-md flex items-center justify-between z-40 w-full px-6 lg:px-20 py-8 border-b border-slate-100 dark:border-white/5 lg:border-none">
+                    <div className="flex items-center gap-4">
+                        <button 
+                            onClick={() => navigate('/login')}
+                            className="p-2 bg-white dark:bg-white/5 rounded-xl border border-slate-200 dark:border-white/10 text-slate-400 hover:text-primary transition-all shadow-sm"
+                        >
+                            <ArrowLeft className="w-5 h-5" />
+                        </button>
+                        <span className="lg:hidden text-lg font-black uppercase tracking-tighter">Paddy<span className="text-primary underline decoration-emerald-500">Nexus</span></span>
+                    </div>
                 </div>
 
                 <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="w-full lg:max-w-xl px-5 lg:px-20 py-12 z-10"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="w-full max-w-full lg:max-w-xl px-6 lg:px-20 py-12 z-10"
                 >
                     <div className="mb-8 text-center lg:text-left">
                         <h3 className="text-3xl lg:text-4xl font-black text-slate-900 dark:text-white uppercase tracking-tighter leading-none mb-3">operative <span className="text-emerald-500 italic">Registry</span></h3>

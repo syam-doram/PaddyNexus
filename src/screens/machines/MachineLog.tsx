@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Machine, useMachines, formatDateToLocalISO } from '../../context/MachineContext';
 import { API_BASE_URL } from '../../config/apiConfig';
+import { Capacitor } from '@capacitor/core';
 
 export default function MachineLog() {
   const navigate = useNavigate();
@@ -165,6 +166,24 @@ export default function MachineLog() {
     .filter(l => l.date === todayStr)
     .map(l => ({ ...l, type: 'HARVEST' }))
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    
+  const getDisplayImage = (url?: string) => {
+    if (!url || url.trim() === "") return null;
+    
+    const isLocalPlatformPath = 
+      url.startsWith('http://localhost') || 
+      url.startsWith('capacitor://') || 
+      url.includes('_capacitor_file_') ||
+      url.startsWith('blob:');
+    
+    if (isLocalPlatformPath && !Capacitor.isNativePlatform()) {
+      return null;
+    }
+    
+    return url;
+  };
+
+  const validImageUrl = getDisplayImage(machine?.image);
 
   return (
     <div className="relative flex h-full w-full flex-col bg-[#F8FAFC] dark:bg-background-dark font-display">
@@ -179,10 +198,10 @@ export default function MachineLog() {
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Deployment Metrics & Daily Logs</p>
             </div>
           </div>
-          {isToday && timelineItems.length === 0 && (
+          {(machine?.is_settled !== 1) && (
             <button 
               onClick={() => navigate('/farmer-harvest', { state: { machine, date: passedDate } })} 
-              className="px-6 py-3 bg-primary text-background-dark rounded-2xl text-[10px] md:text-sm font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 transition-all"
+              className="px-6 py-3 bg-primary text-background-dark rounded-2xl text-xs md:text-sm font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 transition-all w-full md:w-auto"
             >
               Farmer Harvest
             </button>
@@ -191,8 +210,8 @@ export default function MachineLog() {
 
         <div className="lg:grid lg:grid-cols-3 lg:gap-8 items-center">
             <div className="lg:col-span-2 flex items-center gap-4 md:gap-6 bg-slate-50 dark:bg-slate-900/50 p-4 md:p-6 rounded-[28px] md:rounded-[32px] border border-slate-100 dark:border-white/5 shadow-inner">
-                {machine?.image ? (
-                    <div className="w-16 h-16 md:w-24 md:h-24 rounded-2xl md:rounded-[28px] bg-cover bg-center border-2 border-white dark:border-surface-dark shadow-xl shrink-0" style={{ backgroundImage: `url("${machine.image}")` }} />
+                {validImageUrl ? (
+                    <div className="w-16 h-16 md:w-24 md:h-24 rounded-2xl md:rounded-[28px] bg-cover bg-center border-2 border-white dark:border-surface-dark shadow-xl shrink-0" style={{ backgroundImage: `url("${validImageUrl}")` }} />
                 ) : (
                     <div className="w-16 h-16 md:w-24 md:h-24 rounded-2xl md:rounded-[28px] bg-white dark:bg-surface-dark flex items-center justify-center border-2 border-white dark:border-slate-800 shadow-xl text-slate-300 shrink-0">
                         <Tractor className="w-6 h-6 md:w-10 md:h-10" />
@@ -393,7 +412,20 @@ export default function MachineLog() {
                                 </div>
                             </motion.div>
                         ))}
-                    </AnimatePresence>
+                    {timelineItems.length === 0 && machine?.is_settled !== 1 && (
+                        <div className="col-span-full py-20 text-center bg-white dark:bg-surface-dark rounded-[40px] border-2 border-dashed border-slate-200 dark:border-white/5">
+                            <Tractor className="w-12 h-12 text-slate-200 mx-auto mb-6" />
+                            <h4 className="text-xl font-black text-slate-300 uppercase tracking-tighter mb-2">No Active Logs Today</h4>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-8">Asset is currently in standby mode</p>
+                            <button 
+                                onClick={() => navigate('/farmer-harvest', { state: { machine, date: passedDate } })}
+                                className="px-8 py-4 bg-primary text-background-dark rounded-2xl text-[10px] font-black uppercase tracking-widest hover:scale-105 transition-all shadow-xl shadow-primary/20"
+                            >
+                                Initiate Harvesting
+                            </button>
+                        </div>
+                    )}
+                </AnimatePresence>
                 </div>
             </div>
         </div>

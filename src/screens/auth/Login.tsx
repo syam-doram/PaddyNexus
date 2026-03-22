@@ -45,7 +45,7 @@ export default function Login() {
     };
 
     return (
-        <div className="flex h-full w-full bg-[#F8FAFC] dark:bg-[#0F172A] font-display text-slate-900 dark:text-slate-100 overflow-hidden">
+        <div className="flex h-screen w-full bg-[#F8FAFC] dark:bg-[#0F172A] font-display text-slate-900 dark:text-slate-100 overflow-hidden select-none">
             {/* Left Column: Visual Storytelling (Desktop Only) */}
             <div className="hidden lg:flex w-1/2 relative overflow-hidden bg-slate-900 group">
                 <div
@@ -101,7 +101,7 @@ export default function Login() {
             </div>
 
             {/* Right Column: Authentication Form */}
-            <div className="flex-1 flex flex-col items-center lg:justify-center relative overflow-y-auto no-scrollbar">
+            <div className="flex-1 flex flex-col items-center lg:justify-center relative overflow-y-auto overflow-x-hidden no-scrollbar w-full bg-[#F8FAFC] dark:bg-[#0F172A] scroll-smooth">
                 
                 {/* Mobile Branding Header - Sticky */}
                 <div className="lg:hidden sticky top-0 z-30 w-full flex flex-col items-center py-6 bg-[#F8FAFC]/80 dark:bg-[#0F172A]/80 backdrop-blur-xl border-b border-slate-200/50 dark:border-white/5 mb-8 shrink-0">
@@ -116,9 +116,9 @@ export default function Login() {
                 </div>
 
                 <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    className="w-full max-w-[440px] z-10 px-6 lg:px-0 pb-12 lg:pb-0"
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="w-full max-w-full lg:max-w-[440px] z-10 px-6 lg:px-0 pb-12 lg:pb-0"
                 >
                     <div className="mb-10 text-center lg:text-left">
                         <h3 className="text-3xl lg:text-4xl font-black text-slate-900 dark:text-white uppercase tracking-tighter leading-none mb-3">Command <span className="text-primary">Login</span></h3>

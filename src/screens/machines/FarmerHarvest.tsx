@@ -40,7 +40,7 @@ export default function FarmerHarvest() {
   const [machinesList, setMachinesList] = useState<any[]>([]);
   const passedDate = location.state?.date || formatDateToLocalISO(new Date());
 
-  const [date] = useState(formatDateToLocalISO(new Date()));
+  const [date] = useState(passedDate);
   const [farmerName, setFarmerName] = useState('');
   const [farmerMobile, setFarmerMobile] = useState('');
   const [locationName, setLocationName] = useState('');

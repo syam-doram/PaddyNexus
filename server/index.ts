@@ -1090,36 +1090,56 @@ app.patch('/api/lots/:id/machine-cost', async (req, res) => {
 // MACHINE Endpoints
 
 app.get('/api/machines', async (req, res) => {
-  const { traderId, includeSettled } = req.query;
-  const currentYear = new Date().getFullYear().toString();
+  const { traderId, includeSettled, date: requestedDate } = req.query;
+  const targetDate = (requestedDate as string) || new Date().toISOString().split('T')[0];
+  const targetYear = targetDate.split('-')[0];
+
   try {
     const filter: any = {};
     if (traderId) filter.trader_id = traderId;
 
     const machines = await Machine.find(filter);
+    
+    // Fetch settlements for the specific year of the requested date
     const settlements = await SettlementStatus.find({ 
       machine_id: { $in: machines.map(m => m.id) },
-      year: currentYear
+      year: targetYear
     });
 
-    const logs = await MachineLog.find({ date: { $regex: `^${currentYear}` } });
+    // Fetch logs for the specific year for total stats
+    const yearlyLogs = await MachineLog.find({ date: { $regex: `^${targetYear}` } });
+    
+    // Fetch logs for the specific day for daily stats
+    const dailyLogs = await MachineLog.find({ date: targetDate });
 
+    // Fetch advances for daily stats
+    const dailyAdvances = await MachineAdvance.find({ date: targetDate });
+
+    console.log(`[GET /api/machines] Date: ${targetDate}, Year: ${targetYear}, Machines found: ${machines.length}`);
     const results = machines.map(m => {
-      const machineLogs = logs.filter(l => l.machine_id === m.id);
-      const settle = settlements.find(s => s.machine_id === m.id);
+      const machineIdClean = cleanMachineId(m.id);
+      const machineYearlyLogs = yearlyLogs.filter(l => cleanMachineId(l.machine_id) === machineIdClean);
+      const machineDailyLogs = dailyLogs.filter(l => cleanMachineId(l.machine_id) === machineIdClean);
+      const machineDailyAdvances = dailyAdvances.filter(a => cleanMachineId(a.machine_id) === machineIdClean);
+      const settle = settlements.find(s => cleanMachineId(s.machine_id) === machineIdClean);
       
+      const dh = machineDailyLogs.reduce((sum, l) => sum + (l.hours || 0), 0);
+
       return {
         ...m.toObject(),
-        totalHours: machineLogs.reduce((sum, l) => sum + (l.hours || 0), 0),
-        totalAcres: machineLogs.reduce((sum, l) => sum + (l.acres || 0), 0),
-        is_settled_year: settle?.is_settled ? 1 : 0,
+        totalHours: machineYearlyLogs.reduce((sum, l) => sum + (l.hours || 0), 0),
+        totalAcres: machineYearlyLogs.reduce((sum, l) => sum + (l.acres || 0), 0),
+        dailyHours: dh,
+        dailyAcres: machineDailyLogs.reduce((sum, l) => sum + (l.acres || 0), 0),
+        dailyAdvanceAmount: machineDailyAdvances.reduce((sum, a) => sum + (a.amount || 0), 0),
+        is_settled: settle?.is_settled ? 1 : 0,
         settled_at: settle?.settled_at
       };
     });
 
     const filtered = includeSettled === 'true' 
       ? results 
-      : results.filter(m => m.is_settled_year === 0);
+      : results.filter(m => m.is_settled === 0);
     
     res.json(filtered);
   } catch (error) {
@@ -1136,12 +1156,16 @@ app.get('/api/machines/:id', async (req, res) => {
     const machine = await Machine.findOne({ id: cleanId });
     if (!machine) return res.status(404).json({ error: 'Machine not found' });
 
-    const advanceCount = await MachineAdvance.countDocuments({
-      machine_id: cleanId,
-      date: { $regex: `^${today}` }
-    });
+    const currentYear = new Date().getFullYear().toString();
+    const settle = await SettlementStatus.findOne({ machine_id: cleanId, year: currentYear });
+    const advanceCount = await MachineAdvance.countDocuments({ machine_id: cleanId, date: today });
 
-    res.json({ ...machine.toObject(), todayAdvanceCount: advanceCount });
+    res.json({ 
+      ...machine.toObject(), 
+      todayAdvanceCount: advanceCount,
+      is_settled: settle?.is_settled ? 1 : 0,
+      settled_at: settle?.settled_at
+    });
   } catch (error: any) {
     console.error("Database error (get machine):", error);
     res.status(500).json({ error: 'Internal Server Error', message: error.message });
@@ -1378,19 +1402,26 @@ app.get('/api/machine-settlements', async (req, res) => {
     });
     // Multi-join simulation
     const machinesIds = [...new Set([...logs.map(l => l.machine_id), ...advances.map(a => a.machine_id)])];
-    const machines = await Machine.find({ 
-      id: { $in: machinesIds },
-      ...(traderId && { trader_id: traderId })
+    
+    // Fetch the machines mentioned in logs or advances.
+    const machinesFilter: any = {};
+    if (traderId) machinesFilter.trader_id = traderId;
+    const allMachines = await Machine.find(machinesFilter);
+
+    const machines = allMachines.filter(m => {
+        const cleanMId = cleanMachineId(m.id);
+        return machinesIds.some(id => cleanMachineId(id) === cleanMId);
     });
 
-    const settlements = await SettlementStatus.find({ year: targetYear, machine_id: { $in: machinesIds } });
+    const settlements = await SettlementStatus.find({ year: targetYear, machine_id: { $in: machines.map(m => m.id) } });
     const commRate = await CommissionRate.findOne({ year: targetYear });
     const commissionRate = commRate?.machine_hour_rate || 0;
 
     const results = machines.map(m => {
-      const machineLogs = logs.filter(l => l.machine_id === m.id);
-      const machineAdvances = advances.filter(a => a.machine_id === m.id);
-      const settle = settlements.find(s => s.machine_id === m.id);
+      const machineIdClean = cleanMachineId(m.id);
+      const machineLogs = logs.filter(l => cleanMachineId(l.machine_id) === machineIdClean);
+      const machineAdvances = advances.filter(a => cleanMachineId(a.machine_id) === machineIdClean);
+      const settle = settlements.find(s => cleanMachineId(s.machine_id) === machineIdClean);
       
       const totalEarnings = machineLogs.reduce((sum, l) => sum + (l.total_amount || 0), 0);
       const totalHours = machineLogs.reduce((sum, l) => sum + (l.hours || 0), 0);

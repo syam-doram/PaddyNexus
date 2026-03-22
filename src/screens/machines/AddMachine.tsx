@@ -8,6 +8,7 @@ import { useAuth } from '../../context/AuthContext';
 import { API_BASE_URL } from '../../config/apiConfig';
 import BottomSheet from '../../components/common/BottomSheet';
 import { Camera, CameraResultType, CameraSource } from '@capacitor/camera';
+import { Capacitor } from '@capacitor/core';
 
 interface Operator {
   id: string;
@@ -59,6 +60,24 @@ export default function AddMachine() {
     };
     fetchOperators();
   }, [user]);
+
+  const getDisplayImage = (url?: string | null) => {
+    if (!url || url.trim() === "") return null;
+    
+    // Explicitly check for internal platform schemes
+    const isLocalPlatformPath = 
+      url.startsWith('http://localhost') || 
+      url.startsWith('capacitor://') || 
+      url.includes('_capacitor_file_') ||
+      url.startsWith('blob:');
+    
+    // If we're on web (not native) and the path is an internal one, block it
+    if (isLocalPlatformPath && !Capacitor.isNativePlatform()) {
+      return null;
+    }
+    
+    return url;
+  };
 
   const handleAddMachine = (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,11 +134,11 @@ export default function AddMachine() {
       const image = await Camera.getPhoto({
         quality: 90,
         allowEditing: true,
-        resultType: CameraResultType.Uri,
+        resultType: CameraResultType.Base64,
         source: CameraSource.Prompt // Asks user for Camera or Gallery
       });
-      if (image.webPath) {
-        setAssetImage(image.webPath);
+      if (image.base64String) {
+        setAssetImage(`data:image/jpeg;base64,${image.base64String}`);
       }
     } catch (err) {
       console.error("Camera error:", err);
@@ -166,8 +185,8 @@ export default function AddMachine() {
                 onClick={takePhoto}
                 className="relative group aspect-[16/9] lg:aspect-auto lg:h-[400px] bg-slate-100 dark:bg-white/5 border-2 border-dashed border-slate-200 dark:border-white/10 rounded-[32px] md:rounded-[48px] flex flex-col items-center justify-center cursor-pointer hover:border-primary/50 transition-all overflow-hidden"
               >
-                {assetImage ? (
-                  <img src={assetImage} alt="Asset" className="w-full h-full object-cover" />
+                {getDisplayImage(assetImage) ? (
+                  <img src={getDisplayImage(assetImage)!} alt="Asset" className="w-full h-full object-cover" />
                 ) : (
                   <>
                     <div className="w-16 h-16 md:w-20 md:h-20 bg-primary text-background-dark rounded-[24px] md:rounded-[28px] flex items-center justify-center mb-4 shadow-xl shadow-primary/20 group-hover:scale-110 transition-transform">
