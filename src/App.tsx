@@ -13,7 +13,7 @@ import SplashScreen from './components/SplashScreen';
 // Protected Route Wrapper
 const ProtectedRoute = ({ children, allowedRoles }: { children: React.ReactElement, allowedRoles?: Role[] }) => {
   const { isAuthenticated, user, loading } = useAuth();
-  
+
   if (loading) {
     return <SplashScreen />;
   }
@@ -48,16 +48,20 @@ import ErrorBoundary from './components/ErrorBoundary';
 
 function AppContent() {
   const { theme } = useTheme();
-  const { loading } = useAuth();
+  const { loading: authLoading } = useAuth();
+  const [showSplash, setShowSplash] = React.useState(true);
   const lastBackPressTime = React.useRef(0);
-  
-  React.useEffect(() => {
-    // 2. Control the web-splash duration
 
-    // 3. Handle System Back Button (Exit only on double click within 3sec)
+  React.useEffect(() => {
+    // 2. Control the web-splash duration: Ensure splash stays for at least 3 seconds
+    const timer = setTimeout(() => {
+      setShowSplash(false);
+    }, 3000);
+
+    // 3. Handle System Back Button
     const backButtonListener = CapApp.addListener('backButton', async (data) => {
       const now = Date.now();
-      if (now - lastBackPressTime.current < 3000) {
+      if (now - lastBackPressTime.current < 1500) {
         CapApp.exitApp();
       } else {
         lastBackPressTime.current = now;
@@ -65,16 +69,17 @@ function AppContent() {
           text: 'Press back again to exit',
           duration: 'short',
           position: 'center'
-        }).catch(() => {});
+        }).catch(() => { });
       }
     });
 
     return () => {
+      clearTimeout(timer);
       backButtonListener.then(l => l.remove());
     };
   }, []);
 
-  if (loading) {
+  if (authLoading || showSplash) {
     return <SplashScreen />;
   }
 
@@ -107,6 +112,7 @@ function AppContent() {
             <Route path="/add-machine" element={<ProtectedRoute allowedRoles={['machine_harvest', 'trader']}><Lazy.AddMachine /></ProtectedRoute>} />
             <Route path="/machine-settlement" element={<ProtectedRoute allowedRoles={['machine_harvest', 'trader']}><Lazy.MachineSettlement /></ProtectedRoute>} />
             <Route path="/machine-settlement/:machineId" element={<ProtectedRoute allowedRoles={['machine_harvest', 'trader']}><Lazy.MachineSettleDetail /></ProtectedRoute>} />
+            <Route path="/machine-settlement/:machineId/harvests" element={<ProtectedRoute allowedRoles={['machine_harvest', 'trader']}><Lazy.HarvestFarmerList /></ProtectedRoute>} />
             <Route path="/maintenance" element={<ProtectedRoute allowedRoles={['machine_harvest', 'paddy_harvest', 'trader']}><Lazy.MaintenanceAlerts /></ProtectedRoute>} />
             <Route path="/farmer-harvest" element={<ProtectedRoute allowedRoles={['machine_harvest', 'trader']}><Lazy.FarmerHarvest /></ProtectedRoute>} />
 

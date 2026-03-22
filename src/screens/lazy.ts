@@ -21,6 +21,7 @@ export const MachineSettlement = lazy(() => import('./machines/MachineSettlement
 export const MachineSettleDetail = lazy(() => import('./machines/MachineSettleDetail'));
 export const MaintenanceAlerts = lazy(() => import('./machines/MaintenanceAlerts'));
 export const FarmerHarvest = lazy(() => import('./machines/FarmerHarvest'));
+export const HarvestFarmerList = lazy(() => import('./machines/HarvestFarmerList'));
 
 // Paddy
 export const Lots = lazy(() => import('./paddy/Lots'));
