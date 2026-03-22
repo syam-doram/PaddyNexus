@@ -860,8 +860,8 @@ app.get('/api/trader/earnings-summary', async (req, res) => {
     const batches = await Batch.find({ lotId: { $in: lotIds } });
     
     // Get commission rates
-    const years = [...new Set(lots.map(l => new Date(l.date).getFullYear()))];
-    const rates = await CommissionRate.find({ year: { $in: years.map(String) } });
+    const years = [...new Set(lots.map(l => l.date ? new Date(l.date).getFullYear() : 0))].filter(y => y > 0);
+    const rates = await CommissionRate.find({ year: { $in: years } });
 
     const yearlyEarned: Record<string, number> = {};
     const areaWiseEarned: Record<string, number> = {};
@@ -1649,7 +1649,7 @@ app.get('/api/mill-settlements', async (req, res) => {
       },
       {
         $group: {
-          _id: { millName: { $toLower: '$_id.millName' }, lotId: '$_id.lotId', stage: '$stage' }, // Include stage for settled/pending count
+          _id: { "millName": { "$toLower": '$_id.millName' }, "lotId": '$_id.lotId', "stage": '$stage' }, // Include stage for settled/pending count
           totalBags: { $sum: '$bags' },
           netAmount: { $sum: '$netAmountForLot' },
           stage: { $first: '$stage' } // Keep stage for filtering
