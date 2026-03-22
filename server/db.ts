@@ -1,475 +1,226 @@
-import Database from 'better-sqlite3';
+import mongoose from 'mongoose';
+import dotenv from 'dotenv';
 
-const db = new Database('local.db');
-db.pragma('journal_mode = WAL');
+dotenv.config();
 
-// Initialize tables if they don't exist
-db.exec(`
-  CREATE TABLE IF NOT EXISTS machines (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    model TEXT NOT NULL,
-    status TEXT DEFAULT 'IDLE',
-    operator TEXT,
-    image TEXT,
-    owner_name TEXT,
-    owner_mobile TEXT,
-    per_hour_rate INTEGER DEFAULT 1200,
-    trader_id INTEGER,
-    FOREIGN KEY(trader_id) REFERENCES users(id)
-  );
+const uri = process.env.MONGODB_URI || 'mongodb+srv://syamkdoram_db_user:LLCqKjfpxZCfDCVS@paddy-cluster.mwdyyx3.mongodb.net/?appName=paddy-cluster';
 
-  CREATE TABLE IF NOT EXISTS machine_logs (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    machine_id TEXT NOT NULL,
-    farmer_name TEXT NOT NULL,
-    date TEXT NOT NULL,
-    start_reading REAL,
-    end_reading REAL,
-    hours REAL,
-    acres REAL,
-    fuel_cost INTEGER,
-    rate INTEGER,
-    total_amount INTEGER,
-    farmer_mobile TEXT,
-    location TEXT,
-    trader_id INTEGER,
-    FOREIGN KEY(machine_id) REFERENCES machines(id),
-    FOREIGN KEY(trader_id) REFERENCES users(id)
-  );
+mongoose.connect(uri)
+  .then(() => console.log('Connected to MongoDB'))
+  .catch(err => console.error('MongoDB connection error:', err));
 
+// SCHEMAS
 
-  CREATE TABLE IF NOT EXISTS machine_advances (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    machine_id TEXT NOT NULL,
-    amount INTEGER NOT NULL,
-    date TEXT NOT NULL,
-    description TEXT,
-    trader_id INTEGER,
-    FOREIGN KEY(machine_id) REFERENCES machines(id),
-    FOREIGN KEY(trader_id) REFERENCES users(id)
-  );
-
-  CREATE TABLE IF NOT EXISTS transactions (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    amount INTEGER NOT NULL,
-    status TEXT NOT NULL,
-    lot TEXT NOT NULL,
-    time TEXT NOT NULL
-  );
-
-  CREATE TABLE IF NOT EXISTS batches (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    date TEXT NOT NULL,
-    bags INTEGER NOT NULL,
-    weight TEXT NOT NULL,
-    moisture TEXT NOT NULL,
-    moistureStatus TEXT NOT NULL,
-    lotId TEXT NOT NULL,
-    paddyType TEXT,
-    amountType TEXT,
-    moistureType TEXT,
-    mobile TEXT,
-    labour_gratuity INTEGER DEFAULT 0,
-    trader_id INTEGER,
-    FOREIGN KEY(trader_id) REFERENCES users(id)
-  );
-
-  CREATE TABLE IF NOT EXISTS lots (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    type TEXT NOT NULL,
-    weight TEXT NOT NULL,
-    amount TEXT NOT NULL,
-    stage TEXT NOT NULL,
-    paymentStatus TEXT NOT NULL,
-    date TEXT NOT NULL,
-    loaded_at TEXT,
-    transit_at TEXT,
-    delivered_at TEXT,
-    quality_checked_at TEXT,
-    paid_at TEXT,
-    load_area TEXT,
-    mill_name TEXT,
-    empty_bags INTEGER,
-    driver_mobile TEXT,
-    photo_path TEXT,
-    vehicle_type TEXT,
-    reg_number TEXT,
-    gratuity INTEGER DEFAULT 0,
-    machine_cost INTEGER DEFAULT 0,
-    machine_id TEXT,
-    labour_group_id TEXT,
-    weigh_scale_kgs TEXT,
-    settled_at TEXT,
-    trader_id INTEGER,
-    pre_load_scale REAL DEFAULT 0,
-    post_load_scale REAL DEFAULT 0,
-    FOREIGN KEY(machine_id) REFERENCES machines(id),
-    FOREIGN KEY(labour_group_id) REFERENCES labour_groups(id),
-    FOREIGN KEY(trader_id) REFERENCES users(id)
-  );
-
-  CREATE TABLE IF NOT EXISTS farmer_advances (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    farmer_name TEXT NOT NULL,
-    amount INTEGER NOT NULL,
-    date TEXT NOT NULL,
-    description TEXT,
-    lotId TEXT,
-    trader_id INTEGER,
-    FOREIGN KEY(lotId) REFERENCES lots(id),
-    FOREIGN KEY(trader_id) REFERENCES users(id)
-  );
-
-  CREATE TABLE IF NOT EXISTS lot_rates (
-    lotId TEXT PRIMARY KEY,
-    rate INTEGER NOT NULL
-  );
-
-  CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    mobile TEXT UNIQUE NOT NULL,
-    password TEXT NOT NULL,
-    location TEXT NOT NULL,
-    role TEXT NOT NULL,
-    commission_rate REAL DEFAULT 0,
-    trader_id INTEGER
-  );
-
-  CREATE TABLE IF NOT EXISTS commission_rates (
-    year INTEGER PRIMARY KEY,
-    bag_rate REAL DEFAULT 0,
-    machine_hour_rate REAL DEFAULT 0,
-    labour_rate REAL DEFAULT 0
-  );
-
-  CREATE TABLE IF NOT EXISTS mills (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    location TEXT,
-    contact_person TEXT,
-    phone TEXT,
-    email TEXT,
-    registration_date TEXT NOT NULL,
-    trader_id INTEGER,
-    FOREIGN KEY(trader_id) REFERENCES users(id)
-  );
-
-  CREATE TABLE IF NOT EXISTS mill_payments (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    mill_id TEXT NOT NULL,
-    amount INTEGER NOT NULL,
-    date TEXT NOT NULL,
-    description TEXT,
-    lotId TEXT,
-    trader_id INTEGER,
-    FOREIGN KEY(mill_id) REFERENCES mills(id),
-    FOREIGN KEY(trader_id) REFERENCES users(id)
-  );
-
-  CREATE TABLE IF NOT EXISTS labour_groups (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    location TEXT,
-    contact_number TEXT,
-    registration_date TEXT NOT NULL,
-    trader_id INTEGER,
-    FOREIGN KEY(trader_id) REFERENCES users(id)
-  );
-
-  CREATE TABLE IF NOT EXISTS labour_members (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    group_id TEXT NOT NULL,
-    name TEXT NOT NULL,
-    mobile TEXT,
-    role TEXT,
-    FOREIGN KEY(group_id) REFERENCES labour_groups(id) ON DELETE CASCADE
-  );
-
-  CREATE TABLE IF NOT EXISTS operators (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    mobile TEXT NOT NULL,
-    address TEXT,
-    experience TEXT,
-    status TEXT DEFAULT 'ACTIVE',
-    registration_date TEXT NOT NULL,
-    trader_id INTEGER,
-    FOREIGN KEY(trader_id) REFERENCES users(id)
-  );
-
-  CREATE TABLE IF NOT EXISTS paddy_market (
-    id TEXT PRIMARY KEY,
-    paddy_type TEXT NOT NULL,
-    price_per_quintal INTEGER NOT NULL,
-    description TEXT,
-    date TEXT NOT NULL,
-    trader_id INTEGER,
-    FOREIGN KEY(trader_id) REFERENCES users(id)
-  );
-
-  CREATE TABLE IF NOT EXISTS silos (
-    id TEXT PRIMARY KEY,
-    name TEXT NOT NULL,
-    variety TEXT,
-    bags INTEGER DEFAULT 0,
-    remaining_tons REAL DEFAULT 0,
-    capacity_tons REAL DEFAULT 0,
-    trader_id INTEGER,
-    FOREIGN KEY(trader_id) REFERENCES users(id)
-  );
-`);
-
-// Migration: Add hours column if it doesn't exist
-try {
-  db.prepare("ALTER TABLE machine_logs ADD COLUMN farmer_mobile TEXT").run();
-  console.log("Migration: Added farmer_mobile column to machine_logs");
-} catch (err: any) {
-  if (!err.message.includes("duplicate column name")) {
-    console.error("Migration error (add farmer_mobile column):", err.message);
-  }
-}
-
-try {
-  db.prepare("ALTER TABLE lots ADD COLUMN labour_group_id TEXT").run();
-  console.log("Migration: Added labour_group_id column to lots");
-} catch (err: any) {
-  if (!err.message.includes("duplicate column name")) {
-    console.error("Migration error (add labour_group_id to lots):", err.message);
-  }
-}
-
-try {
-  db.prepare("ALTER TABLE users ADD COLUMN image TEXT").run();
-  console.log("Migration: Added image column to users");
-} catch (err: any) {
-  if (!err.message.includes("duplicate column name")) {
-    console.error("Migration error (add image to users):", err.message);
-  }
-}
-
-try {
-  db.prepare("ALTER TABLE machines ADD COLUMN owner_name TEXT").run();
-  console.log("Migration: Added owner_name column to machines");
-} catch (err: any) {
-  if (!err.message.includes("duplicate column name")) {
-    console.error("Migration error (add owner_name):", err.message);
-  }
-}
-
-try {
-  db.prepare("ALTER TABLE machines ADD COLUMN owner_mobile TEXT").run();
-  console.log("Migration: Added owner_mobile column to machines");
-} catch (err: any) {
-  if (!err.message.includes("duplicate column name")) {
-    console.error("Migration error (add owner_mobile):", err.message);
-  }
-}
-
-try {
-  db.prepare("ALTER TABLE machines ADD COLUMN per_hour_rate INTEGER DEFAULT 1200").run();
-  console.log("Migration: Added per_hour_rate column to machines");
-} catch (err: any) {
-  if (!err.message.includes("duplicate column name")) {
-    console.error("Migration error (add per_hour_rate):", err.message);
-  }
-}
-
-try {
-  db.prepare("ALTER TABLE machines ADD COLUMN registration_date TEXT").run();
-  console.log("Migration: Added registration_date column to machines");
-} catch (err: any) {
-  if (!err.message.includes("duplicate column name")) {
-    console.error("Migration error (add registration_date):", err.message);
-  }
-}
-
-try {
-  db.prepare("ALTER TABLE machine_logs ADD COLUMN start_time TEXT").run();
-  console.log("Migration: Added start_time column to machine_logs");
-} catch (err: any) {
-  if (!err.message.includes("duplicate column name")) {
-    console.error("Migration error (add start_time):", err.message);
-  }
-}
-
-try {
-  db.prepare("ALTER TABLE machine_logs ADD COLUMN end_time TEXT").run();
-  console.log("Migration: Added end_time column to machine_logs");
-} catch (err: any) {
-  if (!err.message.includes("duplicate column name")) {
-    console.error("Migration error (add end_time):", err.message);
-  }
-}
-
-try {
-  db.prepare("ALTER TABLE machines ADD COLUMN is_settled INTEGER DEFAULT 0").run();
-  console.log("Migration: Added is_settled column to machines");
-} catch (err: any) {
-  if (!err.message.includes("duplicate column name")) {
-    console.error("Migration error (add is_settled):", err.message);
-  }
-}
-
-try {
-  db.prepare("ALTER TABLE lots ADD COLUMN machine_cost INTEGER DEFAULT 0").run();
-  console.log("Migration: Added machine_cost column to lots");
-} catch (err: any) {
-  if (!err.message.includes("duplicate column name")) {
-    console.error("Migration error (add machine_cost):", err.message);
-  }
-}
-
-try {
-  db.prepare("ALTER TABLE lots ADD COLUMN machine_id TEXT").run();
-  console.log("Migration: Added machine_id column to lots");
-} catch (err: any) {
-  if (!err.message.includes("duplicate column name")) {
-    console.error("Migration error (add machine_id):", err.message);
-  }
-}
-
-try {
-  db.prepare("ALTER TABLE lots ADD COLUMN machine_hours REAL DEFAULT 0").run();
-  console.log("Migration: Added machine_hours column to lots");
-} catch (err: any) {
-  if (!err.message.includes("duplicate column name")) {
-    console.error("Migration error (add machine_hours):", err.message);
-  }
-}
-
-try {
-  db.prepare("ALTER TABLE lots ADD COLUMN moisture_loss REAL DEFAULT 0").run();
-} catch (err: any) {
-  if (!err.message.includes("duplicate column name")) console.error(err.message);
-}
-try {
-  db.prepare("ALTER TABLE lots ADD COLUMN bag_penalty REAL DEFAULT 0").run();
-} catch (err: any) {
-  if (!err.message.includes("duplicate column name")) console.error(err.message);
-}
-try {
-  db.prepare("ALTER TABLE lots ADD COLUMN labor_cost REAL DEFAULT 0").run();
-} catch (err: any) {
-  if (!err.message.includes("duplicate column name")) console.error(err.message);
-}
-try {
-  db.prepare("ALTER TABLE lots ADD COLUMN manual_deductions_applied INTEGER DEFAULT 0").run();
-} catch (err: any) {
-  if (!err.message.includes("duplicate column name")) console.error(err.message);
-}
-
-try {
-  db.prepare("ALTER TABLE lots ADD COLUMN machine_rate REAL DEFAULT 0").run();
-  console.log("Migration: Added machine_rate column to lots");
-} catch (err: any) {
-  if (!err.message.includes("duplicate column name")) {
-    console.error("Migration error (add machine_rate):", err.message);
-  }
-}
-
-try {
-  db.prepare("ALTER TABLE lots ADD COLUMN settled_at TEXT").run();
-  console.log("Migration: Added settled_at column to lots");
-} catch (err: any) {
-  if (!err.message.includes("duplicate column name")) {
-    console.error("Migration error (add settled_at):", err.message);
-  }
-}
-
-try {
-  db.prepare("ALTER TABLE lots ADD COLUMN paid_at TEXT").run();
-  console.log("Migration: Added paid_at column to lots");
-} catch (err: any) {
-  if (!err.message.includes("duplicate column name")) {
-    console.error("Migration error (add paid_at):", err.message);
-  }
-}
-
-try {
-  db.prepare("ALTER TABLE lots ADD COLUMN quality_checked_at TEXT").run();
-  console.log("Migration: Added quality_checked_at column to lots");
-} catch (err: any) {
-  if (!err.message.includes("duplicate column name")) {
-    console.error("Migration error (add quality_checked_at):", err.message);
-  }
-}
-
-// Farmer settlement status table (tracks whether a farmer has been settled for a year)
-try {
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS farmer_settlement_status (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      farmer_name TEXT NOT NULL,
-      year TEXT NOT NULL,
-      is_settled INTEGER DEFAULT 1,
-      settled_at TEXT NOT NULL,
-      UNIQUE(farmer_name, year)
-    );
-
-    CREATE TABLE IF NOT EXISTS machine_settlement_status (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      machine_id TEXT NOT NULL,
-      year TEXT NOT NULL,
-      is_settled INTEGER DEFAULT 1,
-      settled_at TEXT NOT NULL,
-      UNIQUE(machine_id, year),
-      FOREIGN KEY(machine_id) REFERENCES machines(id)
-    );
-
-    CREATE TABLE IF NOT EXISTS mill_settlement_status (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      mill_id TEXT NOT NULL,
-      year TEXT NOT NULL,
-      is_settled INTEGER DEFAULT 1,
-      settled_at TEXT NOT NULL,
-      UNIQUE(mill_id, year),
-      FOREIGN KEY(mill_id) REFERENCES mills(id)
-    );
-  `);
-  console.log("Migration: Created settlement status tables");
-} catch (err: any) {
-  console.error("Migration error (settlement_status):", err.message);
-}
-
-
-// Migration: Add trader_id to all relevant tables for multi-trader support
-const tablesToMigrate = [
-  'machines', 'machine_logs', 'machine_advances', 'lots', 'batches', 
-  'farmer_advances', 'mills', 'mill_payments', 'labour_groups', 'paddy_market', 'silos', 'users', 'operators'
-];
-
-tablesToMigrate.forEach(table => {
-  try {
-    db.prepare(`ALTER TABLE ${table} ADD COLUMN trader_id INTEGER`).run();
-    console.log(`Migration: Added trader_id column to ${table}`);
-  } catch (err: any) {
-    if (!err.message.includes("duplicate column name")) {
-      console.error(`Migration error (add trader_id to ${table}):`, err.message);
-    }
-  }
+const MachineSchema = new mongoose.Schema({
+  id: { type: String, required: true },
+  name: { type: String, required: true },
+  model: { type: String, required: true },
+  status: { type: String, default: 'IDLE' },
+  operator: String,
+  image: String,
+  owner_name: String,
+  owner_mobile: String,
+  per_hour_rate: { type: Number, default: 1200 },
+  trader_id: { type: String }
 });
 
-try {
-  db.prepare("ALTER TABLE lots ADD COLUMN pre_load_scale REAL DEFAULT 0").run();
-  console.log("Migration: Added pre_load_scale column to lots");
-} catch (err: any) {
-  if (!err.message.includes("duplicate column name")) {
-    console.error("Migration error (add pre_load_scale):", err.message);
-  }
-}
+const MachineLogSchema = new mongoose.Schema({
+  machine_id: { type: String, required: true },
+  farmer_name: { type: String, required: true },
+  date: { type: String, required: true },
+  start_reading: Number,
+  end_reading: Number,
+  hours: Number,
+  acres: Number,
+  fuel_cost: Number,
+  rate: Number,
+  total_amount: Number,
+  farmer_mobile: String,
+  location: String,
+  start_time: String,
+  end_time: String,
+  trader_id: { type: String }
+});
 
-try {
-  db.prepare("ALTER TABLE lots ADD COLUMN post_load_scale REAL DEFAULT 0").run();
-  console.log("Migration: Added post_load_scale column to lots");
-} catch (err: any) {
-  if (!err.message.includes("duplicate column name")) {
-    console.error("Migration error (add post_load_scale):", err.message);
+const BatchSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  date: { type: String, required: true },
+  bags: { type: Number, required: true },
+  weight: { type: String, required: true },
+  moisture: { type: String, required: true },
+  moistureStatus: { type: String, required: true },
+  lotId: { type: String, required: true },
+  paddyType: String,
+  amountType: String,
+  moistureType: String,
+  mobile: String,
+  labour_gratuity: { type: Number, default: 0 },
+  trader_id: { type: String }
+});
+
+const LotSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  name: { type: String, required: true },
+  type: { type: String, required: true },
+  weight: { type: String, required: true },
+  amount: { type: String, required: true },
+  stage: { type: String, required: true },
+  paymentStatus: { type: String, required: true },
+  date: { type: String, required: true },
+  loaded_at: String,
+  transit_at: String,
+  delivered_at: String,
+  quality_checked_at: String,
+  paid_at: String,
+  load_area: String,
+  mill_name: String,
+  empty_bags: Number,
+  driver_mobile: String,
+  photo_path: String,
+  vehicle_type: String,
+  reg_number: String,
+  gratuity: { type: Number, default: 0 },
+  machine_cost: { type: Number, default: 0 },
+  machine_id: String,
+  labour_group_id: String,
+  weigh_scale_kgs: String,
+  settled_at: String,
+  trader_id: { type: String },
+  pre_load_scale: { type: Number, default: 0 },
+  post_load_scale: { type: Number, default: 0 }
+});
+
+const UserSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  mobile: { type: String, required: true, unique: true },
+  password: { type: String, required: true },
+  location: { type: String, required: true },
+  role: { type: String, required: true },
+  commission_rate: { type: Number, default: 0 },
+  trader_id: { type: String },
+  image: String
+});
+
+const CommissionRateSchema = new mongoose.Schema({
+  year: { type: Number, required: true, unique: true },
+  bag_rate: { type: Number, default: 0 },
+  machine_hour_rate: { type: Number, default: 0 },
+  labour_rate: { type: Number, default: 0 }
+});
+
+const MillSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  name: { type: String, required: true },
+  location: String,
+  contact_person: String,
+  phone: String,
+  email: String,
+  registration_date: { type: String, required: true },
+  trader_id: { type: String }
+});
+
+const LabourGroupSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  name: { type: String, required: true },
+  location: String,
+  contact_number: String,
+  registration_date: { type: String, required: true },
+  trader_id: { type: String }
+});
+
+const LabourMemberSchema = new mongoose.Schema({
+  group_id: { type: String, required: true },
+  name: { type: String, required: true },
+  mobile: String,
+  role: String
+});
+
+const OperatorSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  name: { type: String, required: true },
+  mobile: { type: String, required: true },
+  address: String,
+  experience: String,
+  status: { type: String, default: 'ACTIVE' },
+  registration_date: { type: String, required: true },
+  trader_id: { type: String }
+});
+
+const PaddyMarketSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  paddy_type: { type: String, required: true },
+  price_per_quintal: { type: Number, required: true },
+  description: String,
+  date: { type: String, required: true },
+  trader_id: { type: String }
+});
+
+const SiloSchema = new mongoose.Schema({
+  id: { type: String, required: true, unique: true },
+  name: { type: String, required: true },
+  variety: String,
+  bags: { type: Number, default: 0 },
+  remaining_tons: { type: Number, default: 0 },
+  capacity_tons: { type: Number, default: 0 },
+  trader_id: { type: String }
+});
+
+const SettlementStatusSchema = new mongoose.Schema({
+  entity_id: { type: String, required: true }, // farmerName, machine_id, or mill_id
+  entity_type: { type: String, required: true }, // 'farmer', 'machine', 'mill'
+  year: { type: String, required: true },
+  is_settled: { type: Boolean, default: true },
+  settled_at: { type: String, required: true }
+});
+
+SettlementStatusSchema.index({ entity_id: 1, year: 1, entity_type: 1 }, { unique: true });
+
+// Farmer Advance Schema
+const FarmerAdvanceSchema = new mongoose.Schema({
+  farmer_name: { type: String, required: true },
+  amount: { type: Number, required: true },
+  date: { type: String, required: true },
+  description: String,
+  lotId: String,
+  trader_id: { type: String }
+});
+
+// Lot Rates Schema
+const LotRateSchema = new mongoose.Schema({
+  lotId: { type: String, required: true, unique: true },
+  rate: { type: Number, required: true }
+});
+
+// MODELS
+export const Machine = mongoose.model('Machine', MachineSchema);
+export const MachineLog = mongoose.model('MachineLog', MachineLogSchema);
+export const Batch = mongoose.model('Batch', BatchSchema);
+export const Lot = mongoose.model('Lot', LotSchema);
+export const User = mongoose.model('User', UserSchema);
+export const CommissionRate = mongoose.model('CommissionRate', CommissionRateSchema);
+export const Mill = mongoose.model('Mill', MillSchema);
+export const LabourGroup = mongoose.model('LabourGroup', LabourGroupSchema);
+export const LabourMember = mongoose.model('LabourMember', LabourMemberSchema);
+export const Operator = mongoose.model('Operator', OperatorSchema);
+export const PaddyMarket = mongoose.model('PaddyMarket', PaddyMarketSchema);
+export const Silo = mongoose.model('Silo', SiloSchema);
+export const SettlementStatus = mongoose.model('SettlementStatus', SettlementStatusSchema);
+export const FarmerAdvance = mongoose.model('FarmerAdvance', FarmerAdvanceSchema);
+export const LotRate = mongoose.model('LotRate', LotRateSchema);
+
+const db = {
+  prepare: (query: string) => {
+    // This is a dummy helper for transition.
+    console.warn("SQL Query used in MongoDB environment:", query);
+    return {
+      run: () => { throw new Error("SQL run() not supported in MongoDB. Update this route."); },
+      all: () => { throw new Error("SQL all() not supported in MongoDB. Update this route."); },
+      get: () => { throw new Error("SQL get() not supported in MongoDB. Update this route."); }
+    };
+  },
+  exec: (query: string) => {
+    console.warn("SQL Exec used in MongoDB environment:", query);
   }
-}
+};
 
 export default db;

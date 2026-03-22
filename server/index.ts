@@ -1,7 +1,7 @@
 import express from 'express';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import db from './db.js';
+import { User, Lot, Batch, Machine, MachineLog, CommissionRate, Mill, LabourGroup, LabourMember, Operator, PaddyMarket, Silo, SettlementStatus, FarmerAdvance, LotRate } from './db.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -30,7 +30,7 @@ const cleanMachineId = (id: string | number): string => {
 
 // AUTHENTICATION Endpoints
 
-app.post('/api/auth/register', (req, res) => {
+app.post('/api/auth/register', async (req, res) => {
   const { name, mobile, password, location, role } = req.body;
   if (!name || !mobile || !password || !location || !role) {
     return res.status(400).json({ error: 'All fields are required' });
@@ -38,13 +38,19 @@ app.post('/api/auth/register', (req, res) => {
 
   try {
     const { traderId } = req.body;
-    // Removed single trader restriction to allow multiple traders
-    const insert = db.prepare('INSERT INTO users (name, mobile, password, location, role, commission_rate, trader_id) VALUES (?, ?, ?, ?, ?, 0, ?)');
-    const result = insert.run(name, mobile, password, location, role, traderId || null);
-    const user = { id: result.lastInsertRowid, name, mobile, location, role, password, commission_rate: 0, trader_id: traderId || null, image: null };
-    res.json({ user });
+    const user = new User({ 
+      name, 
+      mobile, 
+      password, 
+      location, 
+      role, 
+      commission_rate: 0, 
+      trader_id: traderId || null 
+    });
+    await user.save();
+    res.json({ user: { id: user._id, ...user.toObject() } });
   } catch (error: any) {
-    if (error.code === 'SQLITE_CONSTRAINT_UNIQUE') {
+    if (error.code === 11000) {
       return res.status(400).json({ error: 'Mobile number already registered' });
     }
     console.error("Database error (register):", error);
@@ -52,15 +58,15 @@ app.post('/api/auth/register', (req, res) => {
   }
 });
 
-app.get('/api/auth/users', (req, res) => {
-  const { traderId } = req.query; // If provided, filter by trader
+app.get('/api/auth/users', async (req, res) => {
+  const { traderId } = req.query;
   try {
     let users;
     if (traderId) {
        const cleanId = cleanMachineId(traderId as string);
-       users = db.prepare("SELECT id, name, mobile, location, role, commission_rate FROM users WHERE role != 'trader' AND trader_id = ?").all(cleanId);
+       users = await User.find({ role: { $ne: 'trader' }, trader_id: cleanId }).select('id name mobile location role commission_rate');
     } else {
-       users = db.prepare('SELECT id, name, mobile, location, role, commission_rate FROM users').all();
+       users = await User.find().select('id name mobile location role commission_rate');
     }
     res.json(users);
   } catch (error: any) {
@@ -69,36 +75,33 @@ app.get('/api/auth/users', (req, res) => {
   }
 });
 
-app.get('/api/auth/trader-count', (req, res) => {
+app.get('/api/auth/trader-count', async (req, res) => {
   try {
-    const row = db.prepare("SELECT COUNT(*) as count FROM users WHERE role = 'trader'").get() as { count: number };
-    res.json({ count: row.count });
+    const count = await User.countDocuments({ role: 'trader' });
+    res.json({ count });
   } catch (error) {
     console.error("Database error (trader count):", error);
     res.status(500).json({ error: 'Internal Server Error', message: (error as any).message });
   }
 });
 
-app.post('/api/auth/login', (req, res) => {
+app.post('/api/auth/login', async (req, res) => {
   const { mobile, password, role } = req.body;
   if (!mobile || !password || !role) {
     return res.status(400).json({ error: 'Mobile, password, and role are required' });
   }
 
   try {
-    // First, find the user by mobile and password only to check their master role
-    const userRow = db.prepare('SELECT id, name, mobile, location, role, password, commission_rate, trader_id, image FROM users WHERE mobile = ? AND password = ?').get(mobile, password) as any;
+    const userRow = await User.findOne({ mobile, password }).lean();
     
     if (userRow) {
-      // If user is a trader, they can log in as any role. 
-      // We return the user with the requested role so the frontend session uses it.
-      if (userRow.role === 'trader') {
-        return res.json({ user: { ...userRow, role } });
+      const user = { id: (userRow as any)._id, ...userRow };
+      if (user.role === 'trader') {
+        return res.json({ user: { ...user, role } });
       }
       
-      // For non-traders, roles must match exactly
-      if (userRow.role === role) {
-        return res.json({ user: userRow });
+      if (user.role === role) {
+        return res.json({ user });
       }
       
       return res.status(401).json({ error: 'Invalid role for this account' });
@@ -110,21 +113,22 @@ app.post('/api/auth/login', (req, res) => {
     res.status(500).json({ error: 'Internal Server Error', message: (error as any).message });
   }
 });
-app.post('/api/auth/change-password', (req, res) => {
+app.post('/api/auth/change-password', async (req, res) => {
   const { userId, oldPassword, newPassword } = req.body;
   if (!userId || !oldPassword || !newPassword) {
     return res.status(400).json({ error: 'All fields are required' });
   }
 
   try {
-    const user = db.prepare('SELECT password FROM users WHERE id = ?').get(userId) as any;
+    const user = await User.findById(userId);
     if (!user) return res.status(404).json({ error: 'User not found' });
     
     if (user.password !== oldPassword) {
       return res.status(401).json({ error: 'Current password is incorrect' });
     }
 
-    db.prepare('UPDATE users SET password = ? WHERE id = ?').run(newPassword, userId);
+    user.password = newPassword;
+    await user.save();
     res.json({ success: true, message: 'Password changed successfully' });
   } catch (error) {
     console.error("Database error (change-password):", error);
@@ -132,14 +136,14 @@ app.post('/api/auth/change-password', (req, res) => {
   }
 });
 
-app.post('/api/auth/update-photo', (req, res) => {
+app.post('/api/auth/update-photo', async (req, res) => {
   const { userId, image } = req.body;
   if (!userId || !image) {
     return res.status(400).json({ error: 'userId and image are required' });
   }
 
   try {
-    db.prepare('UPDATE users SET image = ? WHERE id = ?').run(image, userId);
+    await User.findByIdAndUpdate(userId, { image });
     res.json({ success: true, message: 'Profile photo updated' });
   } catch (error) {
     console.error("Database error (update-photo):", error);
@@ -149,30 +153,19 @@ app.post('/api/auth/update-photo', (req, res) => {
 
 // DEFAULT Endpoints
 
-app.put('/api/users/:id/commission', (req, res) => {
+app.put('/api/users/:id/commission', async (req, res) => {
   const { id } = req.params;
   const { commission_rate } = req.body;
-  const traderId = req.query.traderId as string;
 
   if (commission_rate === undefined) {
     return res.status(400).json({ error: 'commission_rate is required' });
   }
 
   try {
-    const { traderId } = req.query;
-    let query = 'UPDATE users SET commission_rate = ? WHERE id = ?';
-    const params = [commission_rate, id];
-    if (traderId) {
-      // In a real app we'd check if this user belongs to this trader. 
-      // For now, we'll just allow it if traderId is present to simulate isolation.
-    }
-    const update = db.prepare(query);
-    const result = update.run(...params);
-    
-    if (result.changes === 0) {
+    const user = await User.findByIdAndUpdate(id, { commission_rate });
+    if (!user) {
       return res.status(404).json({ error: 'User not found' });
     }
-    
     res.json({ message: 'Commission rate updated successfully' });
   } catch (error) {
     console.error("Database error (set commission):", error);
@@ -182,9 +175,9 @@ app.put('/api/users/:id/commission', (req, res) => {
 
 // Commission Rates Endpoints (Year-wise)
 
-app.get('/api/commissions', (req, res) => {
+app.get('/api/commissions', async (req, res) => {
   try {
-    const rates = db.prepare('SELECT * FROM commission_rates ORDER BY year DESC').all();
+    const rates = await CommissionRate.find().sort({ year: -1 });
     res.json(rates);
   } catch (error) {
     console.error("Database error (get commissions):", error);
@@ -192,26 +185,25 @@ app.get('/api/commissions', (req, res) => {
   }
 });
 
-app.get('/api/paddy-types', (req, res) => {
+app.get('/api/paddy-types', async (req, res) => {
   try {
-    const types = db.prepare(`
-      SELECT DISTINCT paddyType as type FROM batches WHERE paddyType IS NOT NULL AND paddyType != ''
-      UNION
-      SELECT DISTINCT paddy_type as type FROM paddy_market WHERE paddy_type IS NOT NULL AND paddy_type != ''
-      UNION
-      SELECT DISTINCT type FROM lots WHERE type IS NOT NULL AND type != ''
-    `).all() as { type: string }[];
-    res.json(types.map(t => t.type));
+    const [batchTypes, marketTypes, lotTypes] = await Promise.all([
+      Batch.distinct('paddyType', { paddyType: { $ne: '' } }),
+      PaddyMarket.distinct('paddy_type', { paddy_type: { $ne: '' } }),
+      Lot.distinct('type', { type: { $ne: '' } })
+    ]);
+    const types = Array.from(new Set([...batchTypes, ...marketTypes, ...lotTypes]));
+    res.json(types);
   } catch (error) {
     console.error("Database error (paddy types):", error);
     res.status(500).json({ error: 'Internal Server Error', message: (error as any).message });
   }
 });
 
-app.get('/api/commissions/:year', (req, res) => {
+app.get('/api/commissions/:year', async (req, res) => {
   const { year } = req.params;
   try {
-    const rate = db.prepare('SELECT * FROM commission_rates WHERE year = ?').get(year);
+    const rate = await CommissionRate.findOne({ year: parseInt(year) });
     res.json(rate || { year: parseInt(year), bag_rate: 0, machine_hour_rate: 0, labour_rate: 0 });
   } catch (error) {
     console.error("Database error (get commission by year):", error);
@@ -219,30 +211,24 @@ app.get('/api/commissions/:year', (req, res) => {
   }
 });
 
-app.put('/api/commissions/:year', (req, res) => {
+app.put('/api/commissions/:year', async (req, res) => {
   const { year } = req.params;
   const { bag_rate, machine_hour_rate, labour_rate } = req.body;
 
   try {
-    const upsert = db.prepare(`
-      INSERT INTO commission_rates (year, bag_rate, machine_hour_rate, labour_rate)
-      VALUES (?, ?, ?, ?)
-      ON CONFLICT(year) DO UPDATE SET
-        bag_rate = COALESCE(excluded.bag_rate, bag_rate),
-        machine_hour_rate = COALESCE(excluded.machine_hour_rate, machine_hour_rate),
-        labour_rate = COALESCE(excluded.labour_rate, labour_rate)
-    `);
-    // Commissions are currently global/year-based, but we could isolate them by adding trader_id to commission_rates table.
-    // For now, we'll keep them as is or add trader_id search if we were to isolate.
-    upsert.run(year, bag_rate, machine_hour_rate, labour_rate);
-    res.json({ success: true, year, bag_rate, machine_hour_rate, labour_rate });
+    const rate = await CommissionRate.findOneAndUpdate(
+      { year: parseInt(year) },
+      { $set: { bag_rate, machine_hour_rate, labour_rate } },
+      { upsert: true, new: true }
+    );
+    res.json({ success: true, ...rate.toObject() });
   } catch (error) {
     console.error("Database error (upsert commission):", error);
     res.status(500).json({ error: 'Internal Server Error', message: (error as any).message });
   }
 });
 
-app.delete('/api/auth/users/:id', (req, res) => {
+app.delete('/api/auth/users/:id', async (req, res) => {
     const { id } = req.params;
     const traderId = req.query.traderId;
 
@@ -252,8 +238,8 @@ app.delete('/api/auth/users/:id', (req, res) => {
 
     try {
         const cleanId = cleanMachineId(traderId as string);
-        const result = db.prepare('DELETE FROM users WHERE id = ? AND trader_id = ? AND role != ?').run(id, cleanId, 'trader');
-        if (result.changes === 0) {
+        const result = await User.deleteOne({ _id: id, trader_id: cleanId, role: { $ne: 'trader' } });
+        if (result.deletedCount === 0) {
             return res.status(404).json({ error: 'User not found or unauthorized' });
         }
         res.json({ success: true });
@@ -262,17 +248,14 @@ app.delete('/api/auth/users/:id', (req, res) => {
     }
 });
 
-app.get('/api/transactions', (req, res) => {
+app.get('/api/transactions', async (req, res) => {
   const { lotId } = req.query as { lotId?: string };
   try {
     if (lotId) {
-      // 1. Get the lot details for transitions
-      const lot = db.prepare('SELECT * FROM lots WHERE id = ?').get(lotId) as any;
+      const lot = await Lot.findOne({ id: lotId });
       if (!lot) return res.status(404).json({ error: 'Lot not found' });
 
       const events: any[] = [];
-
-      // Add stage transitions if they exist
       if (lot.loaded_at) events.push({ id: `stage-loaded-${lotId}`, name: 'LOT LOADED', type: 'transition', date: lot.loaded_at, status: 'COMPLETED', amount: 'N/A' });
       if (lot.transit_at) events.push({ id: `stage-transit-${lotId}`, name: 'IN TRANSIT', type: 'transition', date: lot.transit_at, status: 'COMPLETED', amount: 'N/A' });
       if (lot.delivered_at) events.push({ id: `stage-delivered-${lotId}`, name: 'DELIVERED TO MILL', type: 'transition', date: lot.delivered_at, status: 'COMPLETED', amount: 'N/A' });
@@ -280,11 +263,10 @@ app.get('/api/transactions', (req, res) => {
       if (lot.paid_at) events.push({ id: `stage-paid-${lotId}`, name: 'PAYMENT RELEASED', type: 'transition', date: lot.paid_at, status: 'COMPLETED', amount: 'N/A' });
       if (lot.settled_at) events.push({ id: `stage-settled-${lotId}`, name: 'ACCOUNT SETTLED', type: 'transition', date: lot.settled_at, status: 'COMPLETED', amount: 'N/A' });
 
-      // 2. Get farmer advances for this lot
-      const advances = db.prepare('SELECT * FROM farmer_advances WHERE lotId = ?').all(lotId) as any[];
+      const advances = await FarmerAdvance.find({ lotId });
       advances.forEach(adv => {
         events.push({
-          id: `adv-${adv.id}`,
+          id: `adv-${adv._id}`,
           name: `FARMER ADVANCE: ${adv.description || 'N/A'}`,
           type: 'advance',
           date: adv.date,
@@ -293,13 +275,10 @@ app.get('/api/transactions', (req, res) => {
         });
       });
 
-      // Sort events by date
       events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-
       return res.json(events);
     } else {
-      // Return default list (currently empty in db, but we can return all recent lots as "transactions" for the default view)
-      const recentLots = db.prepare('SELECT id, name, type, date, stage, amount FROM lots ORDER BY date DESC LIMIT 50').all() as any[];
+      const recentLots = await Lot.find().sort({ date: -1 }).limit(50);
       const transactions = recentLots.map(l => ({
         id: l.id,
         name: l.name,
@@ -317,10 +296,10 @@ app.get('/api/transactions', (req, res) => {
   }
 });
 
-app.get('/api/lots/:id/batches', (req, res) => {
+app.get('/api/lots/:id/batches', async (req, res) => {
   const { id } = req.params;
   try {
-    const batches = db.prepare('SELECT * FROM batches WHERE lotId = ?').all(id);
+    const batches = await Batch.find({ lotId: id });
     res.json(batches);
   } catch (error) {
     console.error("Database error:", error);
@@ -328,7 +307,7 @@ app.get('/api/lots/:id/batches', (req, res) => {
   }
 });
 
-app.put('/api/lots/:lotId/batches/:batchId', (req, res) => {
+app.put('/api/lots/:lotId/batches/:batchId', async (req, res) => {
   const { lotId, batchId } = req.params;
   const { name, paddyType, bags, weight, moisture, amountType, moistureType, mobile, labour_gratuity } = req.body;
 
@@ -336,29 +315,14 @@ app.put('/api/lots/:lotId/batches/:batchId', (req, res) => {
     const moistureValue = parseFloat(moisture.replace('%', ''));
     const moistureStatus = moistureValue > 17 ? 'red' : moistureValue > 14 ? 'yellow' : 'green';
 
-    const update = db.prepare(`
-      UPDATE batches 
-      SET 
-        name = COALESCE(?, name), 
-        paddyType = COALESCE(?, paddyType), 
-        bags = ?, 
-        weight = ?, 
-        moisture = ?, 
-        moistureStatus = ?,
-        amountType = ?, 
-        moistureType = ?,
-        mobile = ?,
-        labour_gratuity = ?
-      WHERE id = ? AND lotId = ?
-    `);
+    const result = await Batch.findOneAndUpdate(
+      { _id: batchId, lotId },
+      { $set: { name, paddyType, bags, weight, moisture, moistureStatus, amountType, moistureType, mobile, labour_gratuity: labour_gratuity || 0 } }
+    );
     
-    // We should also check lotId belongs to trader, but lotId itself is unique and trader-specific.
-    const result = update.run(name, paddyType, bags, weight, moisture, moistureStatus, amountType, moistureType, mobile, labour_gratuity || 0, batchId, lotId);
-    
-    if (result.changes === 0) {
+    if (!result) {
       return res.status(404).json({ error: 'Batch not found' });
     }
-    
     res.json({ success: true });
   } catch (error) {
     console.error("Database error (update batch):", error);
@@ -366,43 +330,35 @@ app.put('/api/lots/:lotId/batches/:batchId', (req, res) => {
   }
 });
 
-app.post('/api/lots/:lotId/batches', (req, res) => {
+app.post('/api/lots/:lotId/batches', async (req, res) => {
   const { lotId } = req.params;
   const { name, paddyType, bags, weight, moisture, amountType, moistureType, mobile, labour_gratuity } = req.body;
 
   try {
-    // Scaffold default mock data for UI grouping
-    const mockName = name || 'New Batch'; 
-    const mockPaddyType = paddyType || '';
-    const mockDate = new Date().toLocaleString('en-US', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-    const mockMoistureStatus = parseInt(moisture) > 17 ? 'red' : parseInt(moisture) > 14 ? 'yellow' : 'green';
+    const moistureValue = parseInt(moisture);
+    const mockMoistureStatus = moistureValue > 17 ? 'red' : moistureValue > 14 ? 'yellow' : 'green';
 
-    // Inherit trader_id from the parent lot for proper data isolation
-    const lot = db.prepare('SELECT trader_id FROM lots WHERE id = ?').get(lotId) as any;
+    const lot = await Lot.findOne({ id: lotId });
     const traderId = lot?.trader_id || null;
 
-    const insert = db.prepare(`
-      INSERT INTO batches (name, date, bags, weight, moisture, moistureStatus, lotId, amountType, moistureType, paddyType, mobile, labour_gratuity, trader_id)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
+    const batch = new Batch({
+      name: name || 'New Batch',
+      date: new Date().toLocaleString('en-US', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }),
+      bags,
+      weight,
+      moisture,
+      moistureStatus: mockMoistureStatus,
+      lotId,
+      amountType: amountType || 'Spot Cash',
+      moistureType: moistureType || 'Dry Paddy',
+      paddyType: paddyType || '',
+      mobile: mobile || '',
+      labour_gratuity: parseInt(labour_gratuity) || 0,
+      trader_id: traderId
+    });
     
-    const result = insert.run(
-      mockName, 
-      mockDate, 
-      bags, 
-      weight, 
-      moisture, 
-      mockMoistureStatus, 
-      lotId, 
-      amountType || 'Spot Cash', 
-      moistureType || 'Dry Paddy',
-      mockPaddyType,
-      mobile || '',
-      parseInt(labour_gratuity) || 0,
-      traderId
-    );
-    
-    res.json({ success: true, id: result.lastInsertRowid });
+    await batch.save();
+    res.json({ success: true, id: batch._id });
   } catch (error) {
     console.error("Database error (insert batch):", error);
     res.status(500).json({ error: 'Internal Server Error', message: (error as any).message });
@@ -411,11 +367,11 @@ app.post('/api/lots/:lotId/batches', (req, res) => {
 
 
 // GET Lot Rate
-app.get('/api/lots/:id/rate', (req, res) => {
+app.get('/api/lots/:id/rate', async (req, res) => {
   const { id } = req.params;
   try {
-    const rateRow = db.prepare('SELECT rate FROM lot_rates WHERE lotId = ?').get(id) as any;
-    res.json({ rate: rateRow ? rateRow.rate : 1200 }); // Default 1200 if not set
+    const rateRow = await LotRate.findOne({ lotId: id });
+    res.json({ rate: rateRow ? rateRow.rate : 1200 }); 
   } catch (error) {
     console.error("Database error (get rate):", error);
     res.status(500).json({ error: 'Internal Server Error', message: (error as any).message });
@@ -423,7 +379,7 @@ app.get('/api/lots/:id/rate', (req, res) => {
 });
 
 // PUT Lot Rate
-app.put('/api/lots/:id/rate', (req, res) => {
+app.put('/api/lots/:id/rate', async (req, res) => {
   const { id } = req.params;
   const { rate } = req.body;
 
@@ -432,46 +388,52 @@ app.put('/api/lots/:id/rate', (req, res) => {
   }
 
   try {
-    const upsert = db.prepare(`
-      INSERT INTO lot_rates (lotId, rate) VALUES (?, ?)
-      ON CONFLICT(lotId) DO UPDATE SET rate = excluded.rate
-    `);
-    // Lot ownership is confirmed by the lotId being trader-specific.
-    upsert.run(id, rate);
-    res.json({ success: true, rate });
+    const updated = await LotRate.findOneAndUpdate(
+      { lotId: id },
+      { $set: { rate } },
+      { upsert: true, new: true }
+    );
+    res.json({ success: true, rate: updated.rate });
   } catch (error) {
     console.error("Database error (put rate):", error);
     res.status(500).json({ error: 'Internal Server Error', message: (error as any).message });
   }
 });
 
-app.get('/api/dashboard-summary', (req, res) => {
+app.get('/api/dashboard-summary', async (req, res) => {
   const { traderId } = req.query;
   try {
-    let query = `
-      SELECT 
-        l.id as lotId, 
-        l.name as driverName, 
-        l.date as lotDate,
-        l.stage,
-        l.load_area,
-        l.mill_name as millName,
-        b.name as farmerName,
-        b.bags,
-        b.weight,
-        b.moisture
-      FROM lots l
-      LEFT JOIN batches b ON l.id = b.lotId
-      WHERE 1=1
-    `;
-    const params: any[] = [];
-    if (traderId) {
-      query += ' AND l.trader_id = ?';
-      params.push(traderId);
-    }
-    const rows = db.prepare(query).all(...params) as any[];
+    const match: any = {};
+    if (traderId) match.trader_id = traderId;
 
-    res.json(rows);
+    const summary = await Lot.aggregate([
+      { $match: match },
+      {
+        $lookup: {
+          from: 'batches',
+          localField: 'id',
+          foreignField: 'lotId',
+          as: 'batches'
+        }
+      },
+      { $unwind: { path: '$batches', preserveNullAndEmptyArrays: true } },
+      {
+        $project: {
+          lotId: '$id',
+          driverName: '$name',
+          lotDate: '$date',
+          stage: 1,
+          load_area: 1,
+          millName: '$mill_name',
+          farmerName: '$batches.name',
+          bags: '$batches.bags',
+          weight: '$batches.weight',
+          moisture: '$batches.moisture'
+        }
+      }
+    ]);
+
+    res.json(summary);
   } catch (error) {
     console.error("Database error (dashboard summary):", error);
     res.status(500).json({ error: 'Internal Server Error', message: (error as any).message });
@@ -515,75 +477,80 @@ app.get('/api/lot-stages', (req, res) => {
 });
 
 // GET unique paddy types from existing lots
-app.get('/api/lots/types', (req, res) => {
+app.get('/api/lots/types', async (req, res) => {
   try {
-    const types = db.prepare('SELECT DISTINCT type FROM lots WHERE type IS NOT NULL AND type != ""').all() as { type: string }[];
-    res.json(types.map(t => t.type));
+    const types = await Lot.distinct('type', { type: { $ne: '' } });
+    res.json(types);
   } catch (error) {
     console.error("Database error (get lot types):", error);
     res.status(500).json({ error: 'Internal Server Error', message: (error as any).message });
   }
 });
 
-app.get('/api/lots/:id', (req, res) => {
+app.get('/api/lots/:id', async (req, res) => {
   const { id } = req.params;
   try {
-    const lot = db.prepare(`
-      SELECT 
-        l.*, 
-        lg.name as labour_group_name,
-        COALESCE(SUM(b.bags), 0) as bags,
-        COALESCE(AVG(b.weight), 0) as avg_bag_weight
-      FROM lots l 
-      LEFT JOIN labour_groups lg ON l.labour_group_id = lg.id 
-      LEFT JOIN batches b ON l.id = b.lotId
-      WHERE l.id = ?
-      GROUP BY l.id
-    `).get(id);
-    if (!lot) {
-      return res.status(404).json({ error: 'Lot not found' });
-    }
-    res.json(lot);
+    const results = await Lot.aggregate([
+      { $match: { id: id } },
+      {
+        $lookup: {
+          from: 'labourgroups',
+          localField: 'labour_group_id',
+          foreignField: 'id',
+          as: 'labourGroup'
+        }
+      },
+      {
+        $lookup: {
+          from: 'batches',
+          localField: 'id',
+          foreignField: 'lotId',
+          as: 'batches'
+        }
+      },
+      {
+        $addFields: {
+          labour_group_name: { $arrayElemAt: ['$labourGroup.name', 0] },
+          bags: { $sum: '$batches.bags' },
+          avg_bag_weight: { $avg: { $map: { input: '$batches', as: 'b', in: { $toDouble: { $replaceAll: { input: "$$b.weight", find: " kgs", replacement: "" } } } } } }
+        }
+      },
+      { $project: { labourGroup: 0, batches: 0 } }
+    ]);
+
+    if (results.length === 0) return res.status(404).json({ error: 'Lot not found' });
+    res.json(results[0]);
   } catch (error) {
     console.error("Database error (get lot):", error);
     res.status(500).json({ error: 'Internal Server Error', message: (error as any).message });
   }
 });
 
-app.patch('/api/lots/:id/stage', (req, res) => {
+app.patch('/api/lots/:id/stage', async (req, res) => {
   const { id } = req.params;
   const { stage, paymentStatus, settled_at } = req.body;
-  const traderId = req.query.traderId as string;
+  const { traderId } = req.query;
 
   try {
-    let sql = 'UPDATE lots SET stage = COALESCE(?, stage), paymentStatus = COALESCE(?, paymentStatus)';
-    const params: any[] = [stage || null, paymentStatus || null];
-
-    if (req.body.hasOwnProperty('settled_at')) {
-      sql += ', settled_at = ?';
-      params.push(settled_at || null);
-    }
+    const update: any = {};
+    if (stage !== undefined) update.stage = stage;
+    if (paymentStatus !== undefined) update.paymentStatus = paymentStatus;
+    if (settled_at !== undefined) update.settled_at = settled_at;
 
     if (stage) {
       const now = new Date().toISOString();
-      if (stage === 'LOADED')            sql += ', loaded_at = ?', params.push(now);
-      if (stage === 'DELIVERED TO MILL') sql += ', delivered_at = ?', params.push(now);
-      if (stage === 'QUALITY CHECK')     sql += ', quality_checked_at = ?', params.push(now);
-      if (stage === 'PAID')              sql += ', paid_at = ?', params.push(now);
+      if (stage === 'LOADED') update.loaded_at = now;
+      if (stage === 'DELIVERED TO MILL') update.delivered_at = now;
+      if (stage === 'QUALITY CHECK') update.quality_checked_at = now;
+      if (stage === 'PAID') update.paid_at = now;
     }
 
-    sql += ' WHERE id = ?';
-    params.push(id);
+    const query: any = { id };
+    if (traderId) query.trader_id = traderId;
 
-    if (req.query.traderId) {
-      sql = sql.replace(' WHERE id = ?', ' WHERE id = ? AND trader_id = ?');
-      params.push(req.query.traderId);
-    }
-
-    const update = db.prepare(sql);
-    const result = update.run(...params);
+    const result = await Lot.findOneAndUpdate(query, { $set: update }, { new: true });
     
-    if (result.changes === 0) {
+    if (!result) {
       return res.status(404).json({ error: 'Lot not found' });
     }
     res.json({ success: true });
@@ -593,27 +560,42 @@ app.patch('/api/lots/:id/stage', (req, res) => {
   }
 });
 
-app.get('/api/lots', (req, res) => {
+app.get('/api/lots', async (req, res) => {
   const { year, traderId } = req.query;
-  const yearFilter = year ? `${year}-%` : '%-%-%';
+  const yearFilter = year ? new RegExp(`^${year}-`) : /.*/;
   try {
-    let query = `
-      SELECT l.*, SUM(b.bags) as bags, AVG(b.weight) as avg_bag_weight, COALESCE(lr.rate, 1200) as rate
-      FROM lots l
-      LEFT JOIN batches b ON l.id = b.lotId
-      LEFT JOIN lot_rates lr ON l.id = lr.lotId
-      WHERE l.date LIKE ? AND (l.stage IS NULL OR l.stage != 'SETTLED')
-    `;
-    const params: any[] = [yearFilter];
+    const match: any = { date: yearFilter, stage: { $ne: 'SETTLED' } };
+    if (traderId) match.trader_id = traderId;
 
-    if (traderId) {
-      query += ` AND l.trader_id = ? `;
-      params.push(traderId);
-    }
+    const lots = await Lot.aggregate([
+      { $match: match },
+      {
+        $lookup: {
+          from: 'batches',
+          localField: 'id',
+          foreignField: 'lotId',
+          as: 'batches'
+        }
+      },
+      {
+        $lookup: {
+          from: 'lotrates',
+          localField: 'id',
+          foreignField: 'lotId',
+          as: 'lotRate'
+        }
+      },
+      {
+        $addFields: {
+          bags: { $sum: '$batches.bags' },
+          avg_bag_weight: { $avg: { $map: { input: '$batches', as: 'b', in: { $toDouble: { $replaceAll: { input: "$$b.weight", find: " kgs", replacement: "" } } } } } },
+          rate: { $ifNull: [{ $arrayElemAt: ['$lotRate.rate', 0] }, 1200] }
+        }
+      },
+      { $project: { batches: 0, lotRate: 0 } },
+      { $sort: { date: -1 } }
+    ]);
 
-    query += ` GROUP BY l.id ORDER BY l.date DESC `;
-
-    const lots = db.prepare(query).all(...params);
     res.json(lots);
   } catch (error) {
     console.error("Database error (get lots):", error);
@@ -621,25 +603,21 @@ app.get('/api/lots', (req, res) => {
   }
 });
 
-app.get('/api/lots/count/:year', (req, res) => {
+app.get('/api/lots/count/:year', async (req, res) => {
   const { year } = req.params;
   const { traderId } = req.query;
   try {
-    let query = 'SELECT COUNT(*) as count FROM lots WHERE date LIKE ?';
-    const params: any[] = [`${year}-%`];
-    if (traderId) {
-      query += ' AND trader_id = ?';
-      params.push(traderId);
-    }
-    const row = db.prepare(query).get(...params) as { count: number };
-    res.json({ count: row.count });
+    const query: any = { date: new RegExp(`^${year}-`) };
+    if (traderId) query.trader_id = traderId;
+    const count = await Lot.countDocuments(query);
+    res.json({ count });
   } catch (error) {
     console.error("Database error (get lot count):", error);
     res.status(500).json({ error: 'Internal Server Error', message: (error as any).message });
   }
 });
 
-app.post('/api/lots', (req, res) => {
+app.post('/api/lots', async (req, res) => {
   const { id, name, type, weight, weighScaleKgs, date, load_area, mill_name, empty_bags, driver_mobile, photo_path, vehicle_type, reg_number, gratuity, labour_group_id, traderId, pre_load_scale } = req.body;
 
   if (!id || !name || !type || !weight || !date) {
@@ -647,37 +625,33 @@ app.post('/api/lots', (req, res) => {
   }
 
   try {
-    const insert = db.prepare(`
-      INSERT INTO lots (id, name, type, weight, amount, stage, paymentStatus, date, load_area, mill_name, empty_bags, driver_mobile, photo_path, vehicle_type, reg_number, gratuity, labour_group_id, weigh_scale_kgs, trader_id, pre_load_scale)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    
-    insert.run(
-      id, 
-      name, 
-      type, 
-      weight.includes('Tons') ? weight : `${weight} Tons`, 
-      '₹ 0', 
-      'LOADING', 
-      'UNPAID', 
+    const lot = new Lot({
+      id,
+      name,
+      type,
+      weight: weight.includes('Tons') ? weight : `${weight} Tons`,
+      amount: '₹ 0',
+      stage: 'LOADING',
+      paymentStatus: 'UNPAID',
       date,
-      load_area || '',
-      mill_name || '',
-      parseInt(empty_bags) || 0,
-      driver_mobile || '',
-      photo_path || '',
-      vehicle_type || 'Tractor',
-      reg_number || '',
-      parseInt(gratuity) || 0,
-      labour_group_id || null,
-      weighScaleKgs || '',
-      traderId || null,
-      parseFloat(pre_load_scale) || 0
-    );
+      load_area: load_area || '',
+      mill_name: mill_name || '',
+      empty_bags: parseInt(empty_bags) || 0,
+      driver_mobile: driver_mobile || '',
+      photo_path: photo_path || '',
+      vehicle_type: vehicle_type || 'Tractor',
+      reg_number: reg_number || '',
+      gratuity: parseInt(gratuity) || 0,
+      labour_group_id: labour_group_id || null,
+      weigh_scale_kgs: weighScaleKgs || '',
+      trader_id: traderId || null,
+      pre_load_scale: parseFloat(pre_load_scale) || 0
+    });
     
+    await lot.save();
     res.json({ success: true, id });
   } catch (error: any) {
-    if (error.code === 'SQLITE_CONSTRAINT_PRIMARYKEY') {
+    if (error.code === 11000) {
       return res.status(400).json({ error: 'Lot ID already exists' });
     }
     console.error("Database error (insert lot):", error);
@@ -686,11 +660,11 @@ app.post('/api/lots', (req, res) => {
 });
 
 // NEW: Generic Lot Update Endpoint
-app.patch('/api/lots/:id', (req, res) => {
+app.patch('/api/lots/:id', async (req, res) => {
   const { id } = req.params;
   const body = req.body;
+  const { traderId } = req.query;
   
-  // Valid columns that can be patched
   const validColumns = [
     'name', 'type', 'weight', 'amount', 'stage', 'paymentStatus', 'date', 
     'loaded_at', 'transit_at', 'delivered_at', 'quality_checked_at', 'paid_at',
@@ -711,19 +685,12 @@ app.patch('/api/lots/:id', (req, res) => {
   }
 
   try {
-    const setClause = Object.keys(updates).map(key => `${key} = ?`).join(', ');
-    const params = Object.values(updates);
-    params.push(id);
+    const filter: any = { id };
+    if (traderId) filter.trader_id = traderId;
 
-    let sql = `UPDATE lots SET ${setClause} WHERE id = ?`;
-    if (req.query.traderId) {
-      sql += ` AND trader_id = ?`;
-      params.push(req.query.traderId);
-    }
-    const update = db.prepare(sql);
-    const result = update.run(...params);
+    const result = await Lot.findOneAndUpdate(filter, { $set: updates }, { new: true });
 
-    if (result.changes === 0) {
+    if (!result) {
       return res.status(404).json({ error: 'Lot not found' });
     }
     res.json({ success: true });
@@ -735,119 +702,115 @@ app.patch('/api/lots/:id', (req, res) => {
 
 // FARMER SETTLEMENT Endpoints
 
-app.get('/api/farmer-settlements', (req, res) => {
-  const { year } = req.query;
-  const yearFilter = year ? `${year}-%` : '%-%-%';
+app.get('/api/farmer-settlements', async (req, res) => {
+  const { year, traderId } = req.query;
+  const yearFilter = year ? new RegExp(`^${year}-`) : /.*/;
 
   try {
-    // 1. Get farmer lot stats (bags, rate)
-    const lotStats = db.prepare(`
-      SELECT 
-        b.name as farmerName,
-        SUM(b.bags) as totalBags,
-        SUM(b.bags * COALESCE(lr.rate, 1200)) as grossAmount,
-        SUM(COALESCE(b.labour_gratuity, 0)) as batchGratuity,
-        MAX(b.mobile) as mobile
-      FROM batches b
-      JOIN lots l ON b.lotId = l.id
-      LEFT JOIN lot_rates lr ON l.id = lr.lotId
-      WHERE l.date LIKE ?
-      GROUP BY b.name
-    `).all(yearFilter) as any[];
+    const [lots, batches, lotRates, machineLogs, machineList, advancesList] = await Promise.all([
+      Lot.find({ date: yearFilter }),
+      Batch.find({ date: yearFilter }),
+      LotRate.find(),
+      MachineLog.find({ date: yearFilter }),
+      Machine.find(),
+      FarmerAdvance.find({ date: yearFilter })
+    ]);
 
-    // 2. Get machine logs per farmer
-    const machineLogsRaw = db.prepare(`
-      SELECT 
-        ml.farmer_name as farmerName,
-        ml.total_amount as amount,
-        ml.hours,
-        ml.date,
-        COALESCE(m.name, 'Unknown Machine') as machineName
-      FROM machine_logs ml
-      LEFT JOIN machines m ON ml.machine_id = m.id
-      WHERE ml.date LIKE ?
-    `).all(yearFilter) as any[];
+    const lotRateMap = new Map(lotRates.map(r => [r.lotId, r.rate]));
+    const machineMap = new Map(machineList.map(m => [m.id, m.name]));
 
-    // 3. Get total advances per farmer
-    const advances = db.prepare(`
-      SELECT farmer_name as farmerName, SUM(amount) as totalAdvances
-      FROM farmer_advances
-      WHERE date LIKE ?
-      GROUP BY farmer_name
-    `).all(yearFilter) as any[];
+    const farmerGroups = new Map();
+    batches.forEach(b => {
+      const farmerName = b.name;
+      if (!farmerGroups.has(farmerName)) {
+        farmerGroups.set(farmerName, {
+          farmerName,
+          totalBags: 0,
+          grossAmount: 0,
+          batchGratuity: 0,
+          mobile: b.mobile,
+          lots: [],
+          advances: [],
+          machineLogs: []
+        });
+      }
+      const group = farmerGroups.get(farmerName);
+      const lot = lots.find(l => l.id === b.lotId);
+      if (lot) {
+        group.totalBags += b.bags;
+        const rate = lotRateMap.get(lot.id) || 1200;
+        group.grossAmount += b.bags * rate;
+        group.batchGratuity += (b.labour_gratuity || 0);
+        
+        if (!group.lots.find((l: any) => l.lotId === lot.id)) {
+          group.lots.push({
+            lotId: lot.id,
+            date: lot.date,
+            stage: lot.stage,
+            paddyType: lot.type,
+            load_area: lot.load_area,
+            mill_name: lot.mill_name,
+            loaded_at: lot.loaded_at,
+            vehicle_type: lot.vehicle_type,
+            bags: 0,
+            rate: rate,
+            machine_cost: lot.machine_cost || 0,
+            gratuity: lot.gratuity || 0,
+            batch_gratuity: 0,
+            machine_id: lot.machine_id,
+            mobile: b.mobile
+          });
+        }
+        const lotDetail = group.lots.find((l: any) => l.lotId === lot.id);
+        lotDetail.bags += b.bags;
+        lotDetail.batch_gratuity += (b.labour_gratuity || 0);
+      }
+    });
 
-    // 4. Get individual lot details for drill-down
-    let lotQuery = `
-      SELECT 
-        l.id as lotId,
-        b.name as farmerName,
-        l.date,
-        l.stage,
-        l.type as paddyType,
-        l.load_area,
-        l.mill_name,
-        l.loaded_at,
-        l.vehicle_type,
-        SUM(b.bags) as bags,
-        COALESCE(lr.rate, 1200) as rate,
-        COALESCE(l.machine_cost, 0) as machine_cost,
-        COALESCE(l.machine_hours, 0) as machine_hours,
-        COALESCE(l.machine_rate, 0) as machine_rate,
-        COALESCE(l.gratuity, 0) as gratuity,
-        SUM(COALESCE(b.labour_gratuity, 0)) as batch_gratuity,
-        l.machine_id,
-        MIN(b.mobile) as mobile,
-        GROUP_CONCAT(DISTINCT b.amountType) as amountTypes,
-        GROUP_CONCAT(DISTINCT b.weight) as weightCapacities
-      FROM lots l
-      JOIN batches b ON l.id = b.lotId
-      LEFT JOIN lot_rates lr ON l.id = lr.lotId
-      WHERE l.date LIKE ?
-    `;
-    const lotParams: any[] = [yearFilter];
-    const { traderId } = req.query;
+    machineLogs.forEach(ml => {
+      const group = farmerGroups.get(ml.farmer_name);
+      if (group) {
+        group.machineLogs.push({
+          farmerName: ml.farmer_name,
+          amount: ml.total_amount,
+          hours: ml.hours,
+          date: ml.date,
+          machineName: machineMap.get(ml.machine_id) || 'Unknown Machine'
+        });
+      }
+    });
 
-    if (traderId) {
-      lotQuery += ` AND l.trader_id = ? `;
-      lotParams.push(traderId);
-    }
+    advancesList.forEach(adv => {
+      const group = farmerGroups.get(adv.farmer_name);
+      if (group) {
+        group.advances.push(adv);
+      }
+    });
 
-    lotQuery += ` GROUP BY l.id, b.name `;
-    const lotDetails = db.prepare(lotQuery).all(...lotParams) as any[];
-
-    // 5. Get individual advances
-    const allAdvances = db.prepare('SELECT * FROM farmer_advances WHERE date LIKE ? ORDER BY date DESC').all(yearFilter);
-
-    // Combine data
-    const settlements = lotStats.map(stat => {
-      const mcLogs = machineLogsRaw.filter(m => m.farmerName.toLowerCase() === stat.farmerName.toLowerCase());
-      const adv = advances.filter(a => a.farmerName.toLowerCase() === stat.farmerName.toLowerCase());
-      const farmerLots = lotDetails.filter(d => d.farmerName.toLowerCase() === stat.farmerName.toLowerCase()).map(lot => ({
-        ...lot,
-        amountTypes: lot.amountTypes ? lot.amountTypes.split(',') : [],
-        weightCapacities: lot.weightCapacities ? lot.weightCapacities.split(',') : []
-      }));
-      const farmerAdvances = allAdvances.filter((a: any) => a.farmer_name === stat.farmerName);
-      
-      const totalMachineCostFromLogs = mcLogs.reduce((acc, log) => acc + (log.amount || 0), 0);
-      const totalMachineCostFromLots = farmerLots.reduce((acc, lot) => acc + (lot.machine_cost || 0), 0);
+    const settlements = Array.from(farmerGroups.values()).map(group => {
+      const totalMachineCostFromLogs = group.machineLogs.reduce((acc: number, log: any) => acc + (log.amount || 0), 0);
+      const totalMachineCostFromLots = group.lots.reduce((acc: number, lot: any) => acc + (lot.machine_cost || 0), 0);
       const totalMachineCost = totalMachineCostFromLogs + totalMachineCostFromLots;
 
-      const totalMachineHours = mcLogs.reduce((acc, log) => acc + (log.hours || 0), 0);
-      const totalAdvances = adv.reduce((acc, a) => acc + (a.totalAdvances || 0), 0);
-      const totalGratuity = farmerLots.reduce((acc, lot) => acc + lot.gratuity + (lot.batch_gratuity || 0), 0);
-      const netBalance = (stat.grossAmount || 0) - totalMachineCost - totalAdvances - totalGratuity;
+      const totalMachineHours = group.machineLogs.reduce((acc: number, log: any) => acc + (log.hours || 0), 0);
+      const totalAdvances = group.advances.reduce((acc: number, a: any) => acc + (a.amount || 0), 0);
+      const totalGratuity = group.lots.reduce((acc: number, lot: any) => acc + (lot.gratuity || 0) + (lot.batch_gratuity || 0), 0);
+
+      const netBalance = group.grossAmount - totalMachineCost - totalAdvances - totalGratuity;
 
       return {
-        ...stat,
+        farmerName: group.farmerName,
+        mobile: group.mobile,
+        totalBags: group.totalBags,
+        grossAmount: group.grossAmount,
         totalMachineCost,
         totalMachineHours,
-        machineLogs: mcLogs,
         totalAdvances,
         totalGratuity,
         netBalance,
-        lots: farmerLots,
-        advances: farmerAdvances
+        lots: group.lots,
+        advances: group.advances,
+        machineLogs: group.machineLogs
       };
     });
 
