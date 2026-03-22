@@ -193,7 +193,7 @@ export default function TraderDashboard() {
                          </div>
                        </div>
                        <div className="flex items-center justify-between pt-5 md:pt-6 border-t border-slate-50 dark:border-white/5">
-                         <span className="text-[10px] md:text-[11px] font-black text-slate-400 uppercase tracking-widest">{stats.totalAcres.toFixed(1)} Acres Done</span>
+                         <span className="text-[10px] md:text-[11px] font-black text-slate-400 uppercase tracking-widest">{(stats.totalAcres || 0).toFixed(1)} Acres Done</span>
                          <ArrowUpRight className="w-4 h-4 md:w-5 md:h-5 text-slate-300 group-hover:text-primary transition-colors" />
                        </div>
                      </div>

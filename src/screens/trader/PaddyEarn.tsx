@@ -223,7 +223,7 @@ export default function PaddyEarn() {
     return summary.mills.map(m => ({
       ...m,
       percentage: Math.round((m.value / total) * 100)
-    })).sort((a, b) => b.value - a.value).slice(0, 3);
+    })).sort((a, b) => b.value - a.value).slice(0, 5);
   }, [summary]);
 
   if (loading || !summary) {
@@ -350,67 +350,92 @@ export default function PaddyEarn() {
                    <div className="flex items-center gap-2 px-3 md:px-4 py-1.5 md:py-2 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-xl text-[8px] md:text-[9px] font-black text-slate-600 dark:text-slate-300 uppercase tracking-widest">
                       <Filter className="w-3 h-3" /> <span className="hidden sm:inline">Weekly</span>
                    </div>
-                </div>
+                </div>                 <div className="flex-1 h-64 w-full relative group">
+                    <svg viewBox="0 0 800 300" className="w-full h-full preserve-3d">
+                       <defs>
+                         <linearGradient id="waveGradient" x1="0" y1="0" x2="0" y2="1">
+                           <stop offset="0%" stopColor="#6366f1" stopOpacity="0.2" />
+                           <stop offset="100%" stopColor="#6366f1" stopOpacity="0" />
+                         </linearGradient>
+                       </defs>
+                       <line x1="0" y1="50" x2="800" y2="50" stroke="currentColor" className="text-slate-50 dark:text-white/5" strokeWidth="1" />
+                       <line x1="0" y1="150" x2="800" y2="150" stroke="currentColor" className="text-slate-50 dark:text-white/5" strokeWidth="1" />
+                       <line x1="0" y1="250" x2="800" y2="250" stroke="currentColor" className="text-slate-50 dark:text-white/5" strokeWidth="1" />
+                       
+                       {/* Baseline Avg Path (Representative) */}
+                       <motion.path
+                         initial={{ pathLength: 0 }}
+                         animate={{ pathLength: 1 }}
+                         transition={{ duration: 2 }}
+                         d="M 0 220 Q 200 240, 400 210 T 800 230"
+                         fill="none"
+                         stroke="#10b981"
+                         strokeWidth="2"
+                         strokeDasharray="8 6"
+                         className="opacity-40"
+                       />
 
-                <div className="flex-1 h-64 w-full relative group">
-                   <svg viewBox="0 0 800 300" className="w-full h-full preserve-3d">
-                      <defs>
-                        <linearGradient id="waveGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#6366f1" stopOpacity="0.1" />
-                          <stop offset="100%" stopColor="#6366f1" stopOpacity="0" />
-                        </linearGradient>
-                      </defs>
-                      <line x1="0" y1="50" x2="800" y2="50" stroke="currentColor" className="text-slate-50 dark:text-slate-800/50" strokeWidth="1" />
-                      <line x1="0" y1="150" x2="800" y2="150" stroke="currentColor" className="text-slate-50 dark:text-slate-800/50" strokeWidth="1" />
-                      <line x1="0" y1="250" x2="800" y2="250" stroke="currentColor" className="text-slate-50 dark:text-slate-800/50" strokeWidth="1" />
-                      
-                      <motion.path
-                        initial={{ pathLength: 0 }}
-                        animate={{ pathLength: 1 }}
-                        transition={{ duration: 2 }}
-                        d="M 0 200 C 100 180, 200 230, 300 210 C 400 190, 500 240, 600 220 C 700 200, 800 230, 850 210"
-                        fill="none"
-                        stroke="#10b981"
-                        strokeWidth="3"
-                        strokeDasharray="8 6"
-                        className="opacity-60"
-                      />
+                       {/* Dynamic Performance Path */}
+                       {(() => {
+                         const settledLots = summary.lots.filter(l => l.status === 'COMPLETED');
+                         const chartLots = settledLots.slice(0, 8);
+                         if (chartLots.length < 2) return null;
+                         const maxVal = Math.max(...chartLots.map(l => l.value)) || 1;
+                         const points = chartLots.map((l, i) => ({
+                           x: (i * (800 / (chartLots.length - 1))),
+                           y: 280 - (l.value / maxVal) * 200
+                         }));
+                         
+                         const d = `M ${points.map(p => `${p.x} ${p.y}`).join(' L ')}`;
+                         const areaD = `${d} L 800 300 L 0 300 Z`;
 
-                      <motion.path
-                        initial={{ d: "M 0 300 Q 400 300 800 300 L 800 300 L 0 300 Z" }}
-                        animate={{ d: "M 0 180 C 100 140, 250 220, 400 130 C 550 40, 700 280, 800 50 L 800 300 L 0 300 Z" }}
-                        transition={{ duration: 1.5, ease: "easeOut" }}
-                        fill="url(#waveGradient)"
-                      />
-                      <motion.path
-                        initial={{ pathLength: 0 }}
-                        animate={{ pathLength: 1 }}
-                        transition={{ duration: 2.5, ease: "easeInOut" }}
-                        d="M 0 180 C 100 140, 250 220, 400 130 C 550 40, 700 280, 800 50"
-                        fill="none"
-                        stroke="#6366f1"
-                        strokeWidth="4"
-                        strokeLinecap="round"
-                      />
-
-                      <motion.circle
-                        initial={{ scale: 0 }}
-                        animate={{ scale: 1 }}
-                        transition={{ delay: 2 }}
-                        cx="600" cy="115" r="6"
-                        fill="#6366f1"
-                        stroke="white"
-                        strokeWidth="3"
-                        className="shadow-xl"
-                      />
-                   </svg>
-                   
-                   <div className="absolute top-10 right-20 bg-slate-900 text-white p-3 rounded-xl shadow-2xl opacity-0 group-hover:opacity-100 transition-opacity transform translate-y-2 group-hover:translate-y-0 duration-300">
-                      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">#AK-0982</p>
-                      <p className="text-sm font-black italic mt-1">$ 2,840</p>
-                   </div>
-                </div>
-
+                         return (
+                           <>
+                             <motion.path
+                               initial={{ d: "M 0 300 L 800 300 L 800 300 L 0 300 Z" }}
+                               animate={{ d: areaD }}
+                               transition={{ duration: 1.5, ease: "easeOut" }}
+                               fill="url(#waveGradient)"
+                             />
+                             <motion.path
+                               initial={{ pathLength: 0 }}
+                               animate={{ pathLength: 1 }}
+                               transition={{ duration: 2.5, ease: "easeInOut" }}
+                               d={d}
+                               fill="none"
+                               stroke="#6366f1"
+                               strokeWidth="4"
+                               strokeLinecap="round"
+                               strokeLinejoin="round"
+                             />
+                             {/* Peak Point */}
+                             <motion.circle
+                               initial={{ scale: 0 }}
+                               animate={{ scale: 1 }}
+                               transition={{ delay: 1.5 }}
+                               cx={points[0].x} cy={points[0].y} r="6"
+                               fill="#6366f1"
+                               stroke="white"
+                               strokeWidth="3"
+                             />
+                             {/* Tooltip tied to peak settled lot */}
+                             {settledLots.length > 0 && (
+                               <foreignObject x={points[0].x - 80} y={points[0].y - 90} width="200" height="80">
+                                 <div className="bg-slate-900 text-white p-3 rounded-2xl shadow-2xl border border-white/10 opacity-0 group-hover:opacity-100 transition-all transform translate-y-2 group-hover:translate-y-0 duration-300">
+                                   <p className="text-[8px] font-black uppercase tracking-[0.2em] text-slate-400 mb-1">Peak ROI</p>
+                                   <p className="text-[10px] font-bold text-primary mb-0.5 truncate">{settledLots[0].label}</p>
+                                   <p className="text-sm font-[1000] italic text-white flex items-center gap-1.5">
+                                      <TrendingUp className="w-3 h-3 text-green-500" />
+                                      ₹{settledLots[0].value.toLocaleString()}
+                                   </p>
+                                 </div>
+                               </foreignObject>
+                             )}
+                           </>
+                         );
+                       })()}
+                    </svg>
+                 </div>
                 <div className="flex items-center justify-between mt-8 border-t border-slate-50 dark:border-slate-800 pt-8">
                    <div className="flex gap-6">
                       <div className="flex items-center gap-2">
@@ -444,38 +469,35 @@ export default function PaddyEarn() {
                 <div className="flex-1 flex flex-col items-center justify-center relative">
                    <div className="relative w-48 h-48">
                       <svg viewBox="0 0 100 100" className="w-full h-full -rotate-90">
-                         {/* Circle segments */}
+                         {/* Background Circle */}
                          <circle cx="50" cy="50" r="40" fill="none" stroke="#f0f9ff" strokeWidth="12" className="dark:stroke-slate-800" />
-                         <motion.circle 
-                            cx="50" cy="50" r="40" fill="none" stroke="#22c55e" strokeWidth="12" 
-                            strokeDasharray="251.2" 
-                            initial={{ strokeDashoffset: 251.2 }}
-                            animate={{ strokeDashoffset: 251.2 * (1 - (revenueDistribution[0]?.percentage || 0) / 100) }}
-                            transition={{ duration: 1.5, ease: "easeOut" }}
-                            strokeLinecap="round"
-                         />
-                         <motion.circle 
-                            cx="50" cy="50" r="40" fill="none" stroke="#4ade80" strokeWidth="12" 
-                            strokeDasharray="251.2" 
-                            initial={{ strokeDashoffset: 251.2 }}
-                            animate={{ strokeDashoffset: 251.2 * (1 - (revenueDistribution[1]?.percentage || 0) / 100) }}
-                            transition={{ duration: 1.5, ease: "easeOut", delay: 0.2 }}
-                            style={{ rotate: `${(revenueDistribution[0]?.percentage || 0) * 3.6}deg`, transformOrigin: '50% 50%' }}
-                            strokeLinecap="round"
-                         />
-                         <motion.circle 
-                            cx="50" cy="50" r="40" fill="none" stroke="#d1fae5" strokeWidth="12" 
-                            strokeDasharray="251.2" 
-                            initial={{ strokeDashoffset: 251.2 }}
-                            animate={{ strokeDashoffset: 251.2 * (1 - (revenueDistribution[2]?.percentage || 0) / 100) }}
-                            transition={{ duration: 1.5, ease: "easeOut", delay: 0.4 }}
-                            style={{ rotate: `${((revenueDistribution[0]?.percentage || 0) + (revenueDistribution[1]?.percentage || 0)) * 3.6}deg`, transformOrigin: '50% 50%' }}
-                            strokeLinecap="round"
-                         />
+                         
+                         {/* Dynamic Circle segments */}
+                         {revenueDistribution.map((m, idx) => {
+                            const COLORS = ['#22c55e', '#4ade80', '#86efac', '#bbf7d0', '#dcfce7'];
+                            const cumulativePercent = revenueDistribution.slice(0, idx).reduce((acc, curr) => acc + curr.percentage, 0);
+                            
+                            return (
+                              <motion.circle 
+                                 key={idx}
+                                 cx="50" cy="50" r="40" fill="none" 
+                                 stroke={COLORS[idx % COLORS.length]} 
+                                 strokeWidth="12" 
+                                 strokeDasharray="251.2" 
+                                 initial={{ strokeDashoffset: 251.2 }}
+                                 animate={{ strokeDashoffset: 251.2 * (1 - (m.percentage || 0) / 100) }}
+                                 transition={{ duration: 1.5, ease: "easeOut", delay: idx * 0.1 }}
+                                 style={{ rotate: `${cumulativePercent * 3.6}deg`, transformOrigin: '50% 50%' }}
+                                 strokeLinecap="round"
+                              />
+                            );
+                         })}
                       </svg>
                       <div className="absolute inset-0 flex flex-col items-center justify-center">
                          <span className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">TOTAL MILLS</span>
-                         <span className="text-4xl font-black text-slate-900 dark:text-white leading-none">03</span>
+                         <span className="text-4xl font-black text-slate-900 dark:text-white leading-none">
+                            {String(summary.mills.length).padStart(2, '0')}
+                         </span>
                       </div>
                    </div>
 
@@ -483,7 +505,7 @@ export default function PaddyEarn() {
                       {revenueDistribution.map((m, idx) => (
                         <div key={idx} className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl group cursor-pointer hover:bg-white dark:hover:bg-slate-800 hover:shadow-lg transition-all border border-transparent hover:border-green-100">
                            <div className="flex items-center gap-3">
-                              <div className={`w-3 h-3 rounded-full ${idx === 0 ? 'bg-green-500' : idx === 1 ? 'bg-green-400' : 'bg-green-200'}`} />
+                              <div className="w-3 h-3 rounded-full" style={{ backgroundColor: ['#22c55e', '#4ade80', '#86efac', '#bbf7d0', '#dcfce7'][idx % 5] }} />
                               <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">{m.label}</span>
                            </div>
                            <span className="text-[11px] font-black text-slate-900 dark:text-white">{m.percentage}%</span>

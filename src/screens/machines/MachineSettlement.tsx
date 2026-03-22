@@ -428,50 +428,51 @@ export default function MachineSettlement() {
        {/* Bulk Report Modal - Premium Desktop View */}
        <AnimatePresence>
          {showBulkReport && (
-           <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-[#0F172A]/90 backdrop-blur-xl">
-             <motion.div initial={{ opacity: 0, scale: 0.95, y: 50 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 50 }} className="w-full max-w-4xl bg-white dark:bg-[#1E293B] rounded-[56px] h-[85vh] flex flex-col shadow-2xl overflow-hidden relative border border-white/10">
-               <div className="p-10 border-b border-slate-100 dark:border-white/5 shrink-0 bg-slate-900 text-white flex justify-between items-end">
+           <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 lg:p-6 bg-[#0F172A]/90 backdrop-blur-xl">
+             <motion.div initial={{ opacity: 0, scale: 0.95, y: 50 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 50 }} className="w-full max-w-4xl bg-white dark:bg-[#1E293B] rounded-[32px] lg:rounded-[56px] h-[90vh] lg:h-[85vh] flex flex-col shadow-2xl overflow-hidden relative border border-white/10">
+               <div className="p-6 lg:p-10 border-b border-slate-100 dark:border-white/5 shrink-0 bg-slate-900 text-white flex justify-between items-end">
                  <div>
-                    <span className="text-[10px] font-black text-primary uppercase tracking-[0.4em] mb-2 block">
+                    <span className="text-[8px] lg:text-[10px] font-black text-primary uppercase tracking-[0.4em] mb-1 lg:mb-2 block">
                        {activeTab === 'outstanding' ? 'Executive Outstanding Summary' : 'Executive Settlement Archive'}
                     </span>
-                    <h3 className="text-4xl font-black uppercase tracking-tighter">
-                       {activeYear} {activeTab === 'outstanding' ? 'Pending Dues' : 'Finalized Settlements'}
+                    <h3 className="text-xl lg:text-4xl font-black uppercase tracking-tighter">
+                       {activeYear} {activeTab === 'outstanding' ? 'Pending Dues' : 'Finalized'}
                     </h3>
                  </div>
-                 <div className="flex gap-4">
-                     <button className="h-14 w-14 bg-white/10 rounded-2xl flex items-center justify-center hover:bg-white/20 transition-all"><Download className="w-6 h-6" /></button>
-                     <button onClick={() => setShowBulkReport(false)} className="h-14 w-14 bg-white/10 rounded-2xl flex items-center justify-center hover:bg-white/20 transition-all text-white/40 hover:text-white"><X className="w-7 h-7" /></button>
+                 <div className="flex gap-2 lg:gap-4">
+                     <button className="h-10 w-10 lg:h-14 lg:w-14 bg-white/10 rounded-xl lg:rounded-2xl flex items-center justify-center hover:bg-white/20 transition-all"><Download className="w-4 h-4 lg:w-6 lg:h-6" /></button>
+                     <button onClick={() => setShowBulkReport(false)} className="h-10 w-10 lg:h-14 lg:w-14 bg-white/10 rounded-xl lg:rounded-2xl flex items-center justify-center hover:bg-white/20 transition-all text-white/40 hover:text-white"><X className="w-5 h-5 lg:w-7 lg:h-7" /></button>
                  </div>
                </div>
  
-               <div className="grid grid-cols-3 gap-1 px-10 py-8 bg-slate-50 dark:bg-black/20 border-b border-slate-100 dark:border-white/5">
-                  <div className="p-6">
-                     <p className="text-[10px] font-black uppercase opacity-40 mb-2">Total Yield</p>
-                     <p className="text-3xl font-black text-emerald-500">₹{stats.earnings.toLocaleString()}</p>
+               <div className="grid grid-cols-1 sm:grid-cols-3 gap-1 px-6 lg:px-10 py-4 lg:py-8 bg-slate-50 dark:bg-black/20 border-b border-slate-100 dark:border-white/5">
+                  <div className="p-4 lg:p-6 border-b sm:border-b-0 sm:border-r border-slate-100 dark:border-white/5">
+                     <p className="text-[8px] lg:text-[10px] font-black uppercase opacity-40 mb-1 lg:mb-2">Total Yield</p>
+                     <p className="text-xl lg:text-3xl font-black text-emerald-500">₹{stats.earnings.toLocaleString()}</p>
                   </div>
-                  <div className="p-6">
-                     <p className="text-[10px] font-black uppercase opacity-40 mb-2">Advance Liability</p>
-                     <p className="text-3xl font-black text-red-500">₹{stats.advances.toLocaleString()}</p>
+                  <div className="p-4 lg:p-6 border-b sm:border-b-0 sm:border-r border-slate-100 dark:border-white/5">
+                     <p className="text-[8px] lg:text-[10px] font-black uppercase opacity-40 mb-1 lg:mb-2">Advance Liability</p>
+                     <p className="text-xl lg:text-3xl font-black text-red-500">₹{stats.advances.toLocaleString()}</p>
                   </div>
-                  <div className="p-6">
-                     <p className="text-[10px] font-black uppercase opacity-40 mb-2">Net Distribution</p>
-                     <p className="text-3xl font-black text-slate-900 dark:text-white">₹{stats.balance.toLocaleString()}</p>
+                  <div className="p-4 lg:p-6">
+                     <p className="text-[8px] lg:text-[10px] font-black uppercase opacity-40 mb-1 lg:mb-2">Net Distribution</p>
+                     <p className="text-xl lg:text-3xl font-black text-slate-900 dark:text-white">₹{stats.balance.toLocaleString()}</p>
                   </div>
                </div>
  
-               <div className="flex-1 overflow-y-auto p-10 no-scrollbar">
-                 <table className="w-full">
-                     <thead>
-                         <tr className="text-left py-4 border-b border-slate-100 dark:border-white/10">
-                             <th className="pb-6 text-[10px] font-black uppercase tracking-widest text-slate-400">Asset</th>
-                             <th className="pb-6 text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
-                             <th className="pb-6 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Gross Income</th>
-                             <th className="pb-6 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Paid Out</th>
-                             <th className="pb-6 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Net Dues</th>
-                         </tr>
-                     </thead>
-                     <tbody className="divide-y divide-slate-100 dark:divide-white/5">
+               <div className="flex-1 overflow-auto p-4 lg:p-10 no-scrollbar">
+                 <div className="min-w-[600px] lg:min-w-0">
+                  <table className="w-full">
+                      <thead>
+                          <tr className="text-left py-4 border-b border-slate-100 dark:border-white/10">
+                              <th className="pb-6 text-[8px] lg:text-[10px] font-black uppercase tracking-widest text-slate-400">Asset</th>
+                              <th className="pb-6 text-[8px] lg:text-[10px] font-black uppercase tracking-widest text-slate-400">Status</th>
+                              <th className="pb-6 text-[8px] lg:text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Gross Income</th>
+                              <th className="pb-6 text-[8px] lg:text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Paid Out</th>
+                              <th className="pb-6 text-[8px] lg:text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Net Dues</th>
+                          </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100 dark:divide-white/5">
                          {filteredSettlements.map(s => (
                              <tr key={s.id} className="group hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
                                  <td className="py-6 pr-4">
@@ -494,13 +495,14 @@ export default function MachineSettlement() {
                              </tr>
                          ))}
                      </tbody>
-                 </table>
+                  </table>
+                 </div>
                </div>
  
-               <div className="p-10 shrink-0 bg-slate-50 dark:bg-black/20 flex justify-end">
+               <div className="p-6 lg:p-10 shrink-0 bg-slate-50 dark:bg-black/20 flex justify-end">
                  <button 
                    onClick={() => setShowBulkReport(false)}
-                   className="px-12 py-5 bg-slate-900 dark:bg-white text-white dark:text-background-dark rounded-[24px] text-[11px] font-black uppercase tracking-[0.3em] shadow-xl active:scale-95 transition-all"
+                   className="w-full lg:w-auto px-8 lg:px-12 py-4 lg:py-5 bg-slate-900 dark:bg-white text-white dark:text-background-dark rounded-2xl lg:rounded-[24px] text-[10px] lg:text-[11px] font-black uppercase tracking-[0.2em] lg:tracking-[0.3em] shadow-xl active:scale-95 transition-all"
                  >
                    Close Data Summary
                  </button>

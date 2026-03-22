@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
-import { ArrowLeft, Settings, Clock, Map, IndianRupee, ChevronRight, Plus, CheckCircle2, Tractor, Phone, Play, Pause, AlertCircle, User, Pencil, Check, Banknote, Calendar, X, Trash2, Bell, Share2, Gauge } from 'lucide-react';
+import { ArrowLeft, Clock, Map, IndianRupee, ChevronRight, Plus, CheckCircle2, Tractor, Phone, Play, Pause, AlertCircle, User, Pencil, Check, Banknote, Calendar, X, Trash2, Bell, Gauge } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Machine, useMachines, formatDateToLocalISO } from '../../context/MachineContext';
@@ -179,10 +179,14 @@ export default function MachineLog() {
                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Deployment Metrics & Daily Logs</p>
             </div>
           </div>
-          <div className="flex items-center gap-3 justify-end">
-             <button className="hidden sm:flex p-3 bg-white dark:bg-surface-dark border border-slate-100 dark:border-white/10 rounded-2xl text-slate-400"><Share2 className="w-5 h-5" /></button>
-             <button className="p-3 bg-white dark:bg-surface-dark border border-slate-100 dark:border-white/10 rounded-2xl text-slate-400"><Settings className="w-5 h-5" /></button>
-          </div>
+          {isToday && timelineItems.length === 0 && (
+            <button 
+              onClick={() => navigate('/farmer-harvest', { state: { machine, date: passedDate } })} 
+              className="px-6 py-3 bg-primary text-background-dark rounded-2xl text-[10px] md:text-sm font-black uppercase tracking-widest shadow-xl shadow-primary/20 hover:scale-105 active:scale-95 transition-all"
+            >
+              Farmer Harvest
+            </button>
+          )}
         </div>
 
         <div className="lg:grid lg:grid-cols-3 lg:gap-8 items-center">
@@ -317,11 +321,6 @@ export default function MachineLog() {
                          Machine Deployment History
                          <span className="text-primary text-[10px] md:text-sm font-bold bg-primary/10 px-3 py-1 rounded-full">{timelineItems.length} Records</span>
                     </h3>
-                    {isToday && timelineItems.filter(l => l.date.includes(passedDate)).length === 0 && (
-                      <button onClick={() => navigate('/farmer-harvest', { state: { machine, date: passedDate } })} className="w-full sm:w-auto px-6 py-4 md:py-3 bg-slate-900 dark:bg-white text-white dark:text-background-dark rounded-2xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all">
-                           New Deployment
-                      </button>
-                    )}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

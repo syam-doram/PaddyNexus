@@ -175,22 +175,14 @@ export default function MachineList() {
                                   ))}
                               </div>
 
-                              <div className="flex gap-2">
-                                  <button 
-                                      onClick={() => navigate(`/machine-log/${machine.id}`, { state: { machine, date: activeDateStr } })}
-                                      className="flex-1 h-14 bg-slate-100 dark:bg-white/5 text-slate-900 dark:text-white rounded-xl lg:rounded-[24px] text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-slate-200 dark:hover:bg-white/10 transition-all border border-slate-200/50 dark:border-white/5"
-                                  >
-                                      Inspect Log
-                                  </button>
-                                  {(!machine.dailyHours || Number(machine.dailyHours) === 0) && isToday && (
-                                    <button 
-                                        onClick={() => navigate('/farmer-harvest', { state: { machine, date: activeDateStr } })}
-                                        className="flex-[2] h-14 bg-slate-900 dark:bg-white text-white dark:text-background-dark rounded-xl lg:rounded-[24px] text-[10px] font-black uppercase tracking-[0.2em] flex items-center justify-center gap-2 active:scale-95 transition-all shadow-xl shadow-slate-900/10 group-hover:bg-primary group-hover:text-background-dark"
-                                    >
-                                        Start Harvest <Plus className="w-4 h-4" />
-                                    </button>
-                                  )}
-                              </div>
+                               <div className="flex gap-2">
+                                   <button 
+                                       onClick={() => navigate(`/machine-log/${machine.id}`, { state: { machine, date: activeDateStr } })}
+                                       className="w-full h-14 bg-slate-100 dark:bg-white/5 text-slate-900 dark:text-white rounded-xl lg:rounded-[24px] text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-2 hover:bg-slate-200 dark:hover:bg-white/10 transition-all border border-slate-200/50 dark:border-white/5"
+                                   >
+                                       Inspect Log
+                                   </button>
+                               </div>
                           </motion.div>
                       ))
                   )}

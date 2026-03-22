@@ -146,7 +146,7 @@ export default function TraderFleet() {
                       <div className="p-5 bg-slate-50 dark:bg-white/5 rounded-3xl border border-slate-100/50 dark:border-white/5">
                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Operational Hrs</p>
                         <div className="flex items-baseline gap-1.5">
-                            <span className="text-xl font-black text-slate-900 dark:text-white">{machine.totalHours.toFixed(1)}</span>
+                            <span className="text-xl font-black text-slate-900 dark:text-white">{(machine.totalHours || 0).toFixed(1)}</span>
                             <Gauge className="w-3.5 h-3.5 text-primary opacity-40" />
                         </div>
                       </div>
@@ -170,7 +170,7 @@ export default function TraderFleet() {
                             <span className="text-slate-400 uppercase tracking-widest flex items-center gap-2">
                                 <MapPin className="w-4 h-4 text-rose-500/40" /> Coverage
                             </span>
-                            <span className="text-slate-900 dark:text-white">{machine.totalAcres.toFixed(1)} <span className="text-[9px] text-slate-400 uppercase">Acres</span></span>
+                            <span className="text-slate-900 dark:text-white">{(machine.totalAcres || 0).toFixed(1)} <span className="text-[9px] text-slate-400 uppercase">Acres</span></span>
                         </div>
                     </div>
                   </div>
@@ -180,7 +180,7 @@ export default function TraderFleet() {
                         <TrendingUp className="w-4 h-4 text-emerald-500" />
                         <span className="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-widest">Yield Allocation</span>
                      </div>
-                     <p className="text-lg font-black text-slate-900 dark:text-white tracking-tighter">₹{((machine.totalHours * machine.per_hour_rate) / 1000).toFixed(1)}K</p>
+                     <p className="text-lg font-black text-slate-900 dark:text-white tracking-tighter">₹{(((machine.totalHours || 0) * (machine.per_hour_rate || 0)) / 1000).toFixed(1)}K</p>
                   </div>
                 </motion.div>
               ))}

@@ -882,20 +882,24 @@ app.get('/api/trader/earnings-summary', async (req, res) => {
       const earning = bags * commissionRate;
       const volume = parseFloat(lot.amount?.toString().replace(/[^0-9.-]+/g,"") || "0");
       
-      yearlyEarned[lotYear] = (yearlyEarned[lotYear] || 0) + earning;
-      areaWiseEarned[lot.load_area || 'Unknown'] = (areaWiseEarned[lot.load_area || 'Unknown'] || 0) + earning;
+      const isSettled = lot.stage === 'SETTLED';
       
-      const millKey = lot.mill_name || 'Direct Sale';
-      if (!millWiseEarned[millKey]) {
-        millWiseEarned[millKey] = { earnings: 0, lots: 0 };
-      }
-      millWiseEarned[millKey].earnings += earning;
-      millWiseEarned[millKey].lots += 1;
+      if (isSettled) {
+        yearlyEarned[lotYear] = (yearlyEarned[lotYear] || 0) + earning;
+        areaWiseEarned[lot.load_area || 'Unknown'] = (areaWiseEarned[lot.load_area || 'Unknown'] || 0) + earning;
+        
+        const millKey = lot.mill_name || 'Direct Sale';
+        if (!millWiseEarned[millKey]) {
+          millWiseEarned[millKey] = { earnings: 0, lots: 0 };
+        }
+        millWiseEarned[millKey].earnings += earning;
+        millWiseEarned[millKey].lots += 1;
 
-      varietyEarned[lot.type || 'Mixed'] = (varietyEarned[lot.type || 'Mixed'] || 0) + earning;
-      
-      totalProfit += earning;
-      totalRevenue += volume;
+        varietyEarned[lot.type || 'Mixed'] = (varietyEarned[lot.type || 'Mixed'] || 0) + earning;
+        
+        totalProfit += earning;
+        totalRevenue += volume;
+      }
 
       return {
         id: lot.id,
@@ -903,9 +907,9 @@ app.get('/api/trader/earnings-summary', async (req, res) => {
         date: lot.date,
         variety: lot.type || 'Mixed',
         tonnage: lot.weight || '0 T',
-        destination: millKey,
+        destination: lot.mill_name || 'Direct Sale',
         value: earning,
-        status: lot.stage === 'SETTLED' ? 'COMPLETED' : 'PROCESSING'
+        status: isSettled ? 'COMPLETED' : 'PROCESSING'
       };
     }).sort((a, b) => b.value - a.value);
 
@@ -1098,10 +1102,16 @@ app.get('/api/machines', async (req, res) => {
       year: currentYear
     });
 
+    const logs = await MachineLog.find({ date: { $regex: `^${currentYear}` } });
+
     const results = machines.map(m => {
+      const machineLogs = logs.filter(l => l.machine_id === m.id);
       const settle = settlements.find(s => s.machine_id === m.id);
+      
       return {
         ...m.toObject(),
+        totalHours: machineLogs.reduce((sum, l) => sum + (l.hours || 0), 0),
+        totalAcres: machineLogs.reduce((sum, l) => sum + (l.acres || 0), 0),
         is_settled_year: settle?.is_settled ? 1 : 0,
         settled_at: settle?.settled_at
       };
