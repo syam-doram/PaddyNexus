@@ -166,14 +166,20 @@ const SiloSchema = new mongoose.Schema({
 });
 
 const SettlementStatusSchema = new mongoose.Schema({
-  entity_id: { type: String, required: true }, // farmerName, machine_id, or mill_id
-  entity_type: { type: String, required: true }, // 'farmer', 'machine', 'mill'
+  machine_id: String,
+  mill_id: String,
+  entity_id: String,
+  entity_name: String,
   year: { type: String, required: true },
   is_settled: { type: Boolean, default: true },
-  settled_at: { type: String, required: true }
+  settled_at: { type: String, required: true },
+  type: String, // 'FARMER', 'MILL'
+  trader_id: String
 });
 
-SettlementStatusSchema.index({ entity_id: 1, year: 1, entity_type: 1 }, { unique: true });
+SettlementStatusSchema.index({ machine_id: 1, year: 1 });
+SettlementStatusSchema.index({ mill_id: 1, year: 1 });
+SettlementStatusSchema.index({ entity_name: 1, year: 1, type: 1 });
 
 // Farmer Advance Schema
 const FarmerAdvanceSchema = new mongoose.Schema({
