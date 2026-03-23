@@ -25,7 +25,7 @@ export default function Profile() {
   
   const getDisplayImage = (url?: string | null) => {
     if (!url || url.trim() === "") return null;
-    const isLocal = url.startsWith('http://localhost') || url.startsWith('capacitor://') || url.includes('_capacitor_') || url.startsWith('blob:');
+    const isLocal = url.startsWith(window.location.origin) || url.startsWith('capacitor://') || url.includes('_capacitor_') || url.startsWith('blob:');
     if (isLocal && !Capacitor.isNativePlatform()) return null;
     return url;
   };

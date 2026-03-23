@@ -12,7 +12,7 @@ const port = process.env.PORT || 3001;
 
 app.use(express.json());
 
-// CORS Middleware for local network testing
+// CORS Middleware for production access
 app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS');
@@ -1715,10 +1715,11 @@ app.get('/api/mill-settlements', async (req, res) => {
     // 3. Build lookup maps
     const batchesByLot = new Map();
     batches.forEach(b => {
-      if (!batchesByLot.has(b.lotId)) batchesByLot.set(b.lotId, []);
-      batchesByLot.get(b.lotId).push(b);
+      const lid = (b.lotId || '').trim();
+      if (!batchesByLot.has(lid)) batchesByLot.set(lid, []);
+      batchesByLot.get(lid).push(b);
     });
-    const ratesByLot = new Map(lotRates.map(r => [r.lotId, r.rate]));
+    const ratesByLot = new Map(lotRates.map(r => [(r.lotId || '').trim(), r.rate]));
 
     // 4. Process mills
     const results = mills.map(mill => {
@@ -1735,11 +1736,15 @@ app.get('/api/mill-settlements', async (req, res) => {
       let settledCount = 0;
 
       millLots.forEach(lot => {
-        const lb = batchesByLot.get(lot.id) || [];
+        const lb = batchesByLot.get((lot.id || '').trim()) || [];
         const bagSum = lb.reduce((s, b) => s + (b.bags || 0), 0);
         const weightSum = lb.reduce((s, b) => {
-          const wNum = parseFloat(String(b.weight || '0').split(' ')[0]);
-          return s + (isNaN(wNum) ? 0 : wNum);
+          const wStr = String(b.weight || '0').replace(/,/g, '').split(' ')[0];
+          let wNum = parseFloat(wStr);
+          if (isNaN(wNum)) return s;
+          // Heuristic: If weight is small and unit is Ton (or implied by Tons/T/t), multiply by 1000
+          if (String(b.weight).toLowerCase().includes('ton') && wNum < 100) wNum *= 1000;
+          return s + wNum;
         }, 0);
 
         const paddyRate = ratesByLot.get(lot.id) || 1200;
@@ -1830,16 +1835,19 @@ app.get('/api/mill-settlements/:millId', async (req, res) => {
     const dealer_comm = commRate?.bag_rate || 0;
     const labour_comm = commRate?.labour_rate || 0;
 
-    // 3. Process Lots in JS
+    // 3. Process every lot in JS
     const processedLots = lots.map(lot => {
-      const lotBatches = batches.filter(b => b.lotId === lot.id);
-      const rateRow = lotRates.find(r => r.lotId === lot.id);
+      const lotIdTrimmed = (lot.id || '').trim();
+      const lotBatches = batches.filter(b => (b.lotId || '').trim() === lotIdTrimmed);
+      const rateRow = lotRates.find(r => (r.lotId || '').trim() === lotIdTrimmed);
       
       const totalBags = lotBatches.reduce((sum, b) => sum + (b.bags || 0), 0);
       const totalWeightKgs = lotBatches.reduce((sum, b) => {
-        const wStr = String(b.weight || '0').split(' ')[0];
-        const wNum = parseFloat(wStr);
-        return sum + (isNaN(wNum) ? 0 : wNum);
+        const wStr = String(b.weight || '0').replace(/,/g, '').split(' ')[0];
+        let wNum = parseFloat(wStr);
+        if (isNaN(wNum)) return sum;
+        if (String(b.weight).toLowerCase().includes('ton') && wNum < 100) wNum *= 1000;
+        return sum + wNum;
       }, 0);
 
       const paddyRate = rateRow?.rate || 1200;

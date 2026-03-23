@@ -50,7 +50,7 @@ export default function MachineList() {
     
     // Explicitly check for internal platform schemes
     const isLocalPlatformPath = 
-      url.startsWith('http://localhost') || 
+      url.startsWith(window.location.origin) || 
       url.startsWith('capacitor://') || 
       url.includes('_capacitor_file_') ||
       url.startsWith('blob:');

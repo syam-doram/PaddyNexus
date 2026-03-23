@@ -171,7 +171,7 @@ export default function MachineLog() {
     if (!url || url.trim() === "") return null;
     
     const isLocalPlatformPath = 
-      url.startsWith('http://localhost') || 
+      url.startsWith(window.location.origin) || 
       url.startsWith('capacitor://') || 
       url.includes('_capacitor_file_') ||
       url.startsWith('blob:');

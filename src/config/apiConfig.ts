@@ -2,7 +2,7 @@
 /**
  * Centralized API configuration.
  * For production (mobile build), you can override the base URL by creating a .env file 
- * and setting VITE_API_URL=http://your-server-ip:3001
+ * and setting VITE_API_URL=https://your-server-address
  */
 
 const getApiBaseUrl = () => {
