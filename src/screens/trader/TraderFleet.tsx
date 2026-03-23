@@ -37,7 +37,7 @@ export default function TraderFleet() {
         const res = await fetch(`${API_BASE_URL}/machines?includeSettled=true&traderId=${traderId}`);
         if (res.ok) {
           const data = await res.json();
-          setMachines(data);
+          setMachines(Array.isArray(data) ? data : []);
         }
       } catch (err) {
         console.error("Fleet fetch error:", err);

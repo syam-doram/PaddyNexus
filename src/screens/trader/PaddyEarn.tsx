@@ -99,7 +99,11 @@ export default function PaddyEarn() {
         return;
       }
       const data = await response.json();
-      setSummary(data);
+      if (data && !data.error && typeof data === 'object') {
+        setSummary(data);
+      } else {
+        setSummary(null);
+      }
     } catch (error) {
       console.error('Error fetching trader earnings:', error);
       setSummary(null);

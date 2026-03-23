@@ -44,7 +44,7 @@ export default function Lots() {
         }
         const res = await fetch(url);
         const data = await res.json();
-        setDbLots(data);
+        setDbLots(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error("Error fetching lots:", error);
       } finally {

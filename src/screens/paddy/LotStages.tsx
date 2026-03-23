@@ -98,7 +98,7 @@ export default function LotStages() {
     if (user?.id) url += `?traderId=${user.id}`;
     fetch(url)
       .then(res => res.json())
-      .then(data => setLots(data))
+      .then(data => setLots(Array.isArray(data) ? data : []))
       .catch(err => console.error('Error fetching lot-stages:', err));
   }, [user?.id]);
   

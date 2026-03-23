@@ -58,6 +58,10 @@ const BatchSchema = new mongoose.Schema({
   trader_id: { type: String }
 });
 
+BatchSchema.index({ lotId: 1 });
+BatchSchema.index({ trader_id: 1 });
+BatchSchema.index({ name: 1 });
+
 const LotSchema = new mongoose.Schema({
   id: { type: String, required: true, unique: true },
   name: { type: String, required: true },
@@ -89,6 +93,12 @@ const LotSchema = new mongoose.Schema({
   pre_load_scale: { type: Number, default: 0 },
   post_load_scale: { type: Number, default: 0 }
 });
+
+LotSchema.index({ id: 1 }, { unique: true });
+LotSchema.index({ trader_id: 1 });
+LotSchema.index({ date: -1 });
+LotSchema.index({ stage: 1 });
+LotSchema.index({ labour_group_id: 1 });
 
 const UserSchema = new mongoose.Schema({
   name: { type: String, required: true },
@@ -127,6 +137,9 @@ const LabourGroupSchema = new mongoose.Schema({
   registration_date: { type: String, required: true },
   trader_id: { type: String }
 });
+
+LabourGroupSchema.index({ id: 1 }, { unique: true });
+LabourGroupSchema.index({ trader_id: 1 });
 
 const LabourMemberSchema = new mongoose.Schema({
   group_id: { type: String, required: true },
@@ -214,6 +227,8 @@ const LotRateSchema = new mongoose.Schema({
   lotId: { type: String, required: true, unique: true },
   rate: { type: Number, required: true }
 });
+
+LotRateSchema.index({ lotId: 1 }, { unique: true });
 
 // MODELS
 export const Machine = mongoose.model('Machine', MachineSchema);

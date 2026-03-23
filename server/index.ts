@@ -22,6 +22,14 @@ app.use((req, res, next) => {
   next();
 });
 
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'ok', 
+    dbState: mongoose.connection.readyState,
+    time: new Date().toISOString()
+  });
+});
+
 // Helper to clean machine IDs (strips colon suffixes)
 const cleanMachineId = (id: string | number): string => {
   if (typeof id === 'number') return id.toString();
@@ -54,7 +62,7 @@ app.post('/api/auth/register', async (req, res) => {
       return res.status(400).json({ error: 'Mobile number already registered' });
     }
     console.error("Database error (register):", error);
-    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message });
+    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message, stack: (error as any).stack });
   }
 });
 
@@ -81,7 +89,7 @@ app.get('/api/auth/trader-count', async (req, res) => {
     res.json({ count });
   } catch (error) {
     console.error("Database error (trader count):", error);
-    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message });
+    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message, stack: (error as any).stack });
   }
 });
 
@@ -110,7 +118,7 @@ app.post('/api/auth/login', async (req, res) => {
     }
   } catch (error) {
     console.error("Database error (login):", error);
-    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message });
+    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message, stack: (error as any).stack });
   }
 });
 app.post('/api/auth/change-password', async (req, res) => {
@@ -132,7 +140,7 @@ app.post('/api/auth/change-password', async (req, res) => {
     res.json({ success: true, message: 'Password changed successfully' });
   } catch (error) {
     console.error("Database error (change-password):", error);
-    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message });
+    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message, stack: (error as any).stack });
   }
 });
 
@@ -147,7 +155,7 @@ app.post('/api/auth/update-photo', async (req, res) => {
     res.json({ success: true, message: 'Profile photo updated' });
   } catch (error) {
     console.error("Database error (update-photo):", error);
-    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message });
+    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message, stack: (error as any).stack });
   }
 });
 
@@ -169,7 +177,7 @@ app.put('/api/users/:id/commission', async (req, res) => {
     res.json({ message: 'Commission rate updated successfully' });
   } catch (error) {
     console.error("Database error (set commission):", error);
-    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message });
+    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message, stack: (error as any).stack });
   }
 });
 
@@ -181,7 +189,7 @@ app.get('/api/commissions', async (req, res) => {
     res.json(rates);
   } catch (error) {
     console.error("Database error (get commissions):", error);
-    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message });
+    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message, stack: (error as any).stack });
   }
 });
 
@@ -196,7 +204,7 @@ app.get('/api/paddy-types', async (req, res) => {
     res.json(types);
   } catch (error) {
     console.error("Database error (paddy types):", error);
-    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message });
+    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message, stack: (error as any).stack });
   }
 });
 
@@ -207,7 +215,7 @@ app.get('/api/commissions/:year', async (req, res) => {
     res.json(rate || { year: parseInt(year), bag_rate: 0, machine_hour_rate: 0, labour_rate: 0 });
   } catch (error) {
     console.error("Database error (get commission by year):", error);
-    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message });
+    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message, stack: (error as any).stack });
   }
 });
 
@@ -224,7 +232,7 @@ app.put('/api/commissions/:year', async (req, res) => {
     res.json({ success: true, ...rate.toObject() });
   } catch (error) {
     console.error("Database error (upsert commission):", error);
-    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message });
+    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message, stack: (error as any).stack });
   }
 });
 
@@ -292,7 +300,7 @@ app.get('/api/transactions', async (req, res) => {
     }
   } catch (error) {
     console.error("Database error (transactions):", error);
-    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message });
+    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message, stack: (error as any).stack });
   }
 });
 
@@ -303,7 +311,7 @@ app.get('/api/lots/:id/batches', async (req, res) => {
     res.json(batches);
   } catch (error) {
     console.error("Database error:", error);
-    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message });
+    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message, stack: (error as any).stack });
   }
 });
 
@@ -326,7 +334,7 @@ app.put('/api/lots/:lotId/batches/:batchId', async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error("Database error (update batch):", error);
-    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message });
+    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message, stack: (error as any).stack });
   }
 });
 
@@ -361,7 +369,7 @@ app.post('/api/lots/:lotId/batches', async (req, res) => {
     res.json({ success: true, id: batch._id });
   } catch (error) {
     console.error("Database error (insert batch):", error);
-    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message });
+    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message, stack: (error as any).stack });
   }
 });
 
@@ -374,7 +382,7 @@ app.get('/api/lots/:id/rate', async (req, res) => {
     res.json({ rate: rateRow ? rateRow.rate : 1200 }); 
   } catch (error) {
     console.error("Database error (get rate):", error);
-    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message });
+    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message, stack: (error as any).stack });
   }
 });
 
@@ -396,7 +404,7 @@ app.put('/api/lots/:id/rate', async (req, res) => {
     res.json({ success: true, rate: updated.rate });
   } catch (error) {
     console.error("Database error (put rate):", error);
-    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message });
+    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message, stack: (error as any).stack });
   }
 });
 
@@ -436,7 +444,7 @@ app.get('/api/dashboard-summary', async (req, res) => {
     res.json(summary);
   } catch (error) {
     console.error("Database error (dashboard summary):", error);
-    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message });
+    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message, stack: (error as any).stack });
   }
 });
 
@@ -478,17 +486,17 @@ app.get('/api/lot-stages', async (req, res) => {
         $addFields: {
           labour_group_name: { $arrayElemAt: ['$labourGroup.name', 0] },
           bags: { $sum: '$batches.bags' },
-          avg_bag_weight: { $avg: { $map: { input: '$batches', as: 'b', in: { $toDouble: { $replaceAll: { input: "$$b.weight", find: " kgs", replacement: "" } } } } } },
+          avg_bag_weight: { $avg: { $map: { input: '$batches', as: 'b', in: { $convert: { input: { $arrayElemAt: [{ $split: [{ $ifNull: [{ $toString: "$$b.weight" }, "0"] }, " "] }, 0] }, to: "double", onError: 0, onNull: 0 } } } } },
           rate: { $ifNull: [{ $arrayElemAt: ['$lotRate.rate', 0] }, 1200] }
         }
       },
       { $project: { labourGroup: 0, batches: 0, lotRate: 0 } },
       { $sort: { date: -1 } }
-    ]);
+    ]).allowDiskUse(true);
     res.json(lots);
   } catch (error) {
     console.error("Database error (get lot-stages):", error);
-    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message });
+    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message, stack: (error as any).stack });
   }
 });
 
@@ -499,7 +507,7 @@ app.get('/api/lots/types', async (req, res) => {
     res.json(types);
   } catch (error) {
     console.error("Database error (get lot types):", error);
-    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message });
+    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message, stack: (error as any).stack });
   }
 });
 
@@ -528,17 +536,17 @@ app.get('/api/lots/:id', async (req, res) => {
         $addFields: {
           labour_group_name: { $arrayElemAt: ['$labourGroup.name', 0] },
           bags: { $sum: '$batches.bags' },
-          avg_bag_weight: { $avg: { $map: { input: '$batches', as: 'b', in: { $toDouble: { $replaceAll: { input: "$$b.weight", find: " kgs", replacement: "" } } } } } }
+          avg_bag_weight: { $avg: { $map: { input: '$batches', as: 'b', in: { $convert: { input: { $arrayElemAt: [{ $split: [{ $ifNull: [{ $toString: "$$b.weight" }, "0"] }, " "] }, 0] }, to: "double", onError: 0, onNull: 0 } } } } }
         }
       },
       { $project: { labourGroup: 0, batches: 0 } }
-    ]);
+    ]).allowDiskUse(true);
 
     if (results.length === 0) return res.status(404).json({ error: 'Lot not found' });
     res.json(results[0]);
   } catch (error) {
     console.error("Database error (get lot):", error);
-    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message });
+    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message, stack: (error as any).stack });
   }
 });
 
@@ -572,7 +580,7 @@ app.patch('/api/lots/:id/stage', async (req, res) => {
     res.json({ success: true });
   } catch (error) {
     console.error("Database error (update lot stage):", error);
-    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message });
+    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message, stack: (error as any).stack });
   }
 });
 
@@ -580,7 +588,7 @@ app.get('/api/lots', async (req, res) => {
   const { year, traderId } = req.query;
   const yearFilter = year ? new RegExp(`^${year}-`) : /.*/;
   try {
-    const match: any = { date: yearFilter, stage: { $ne: 'SETTLED' } };
+    const match: any = { date: { $regex: year ? `^${year}-` : '.*' }, stage: { $ne: 'SETTLED' } };
     if (traderId) match.trader_id = traderId;
 
     const lots = await Lot.aggregate([
@@ -604,18 +612,18 @@ app.get('/api/lots', async (req, res) => {
       {
         $addFields: {
           bags: { $sum: '$batches.bags' },
-          avg_bag_weight: { $avg: { $map: { input: '$batches', as: 'b', in: { $toDouble: { $replaceAll: { input: "$$b.weight", find: " kgs", replacement: "" } } } } } },
+          avg_bag_weight: { $avg: { $map: { input: '$batches', as: 'b', in: { $convert: { input: { $arrayElemAt: [{ $split: [{ $ifNull: [{ $toString: "$$b.weight" }, "0"] }, " "] }, 0] }, to: "double", onError: 0, onNull: 0 } } } } },
           rate: { $ifNull: [{ $arrayElemAt: ['$lotRate.rate', 0] }, 1200] }
         }
       },
       { $project: { batches: 0, lotRate: 0 } },
       { $sort: { date: -1 } }
-    ]);
+    ]).allowDiskUse(true);
 
     res.json(lots);
   } catch (error) {
     console.error("Database error (get lots):", error);
-    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message });
+    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message, stack: (error as any).stack });
   }
 });
 

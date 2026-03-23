@@ -82,7 +82,11 @@ export default function MachineEarn() {
       }
       const res = await fetch(url);
       const data = await res.json();
-      setSummary(data);
+      if (data && !data.error && typeof data === 'object') {
+        setSummary(data);
+      } else {
+        setSummary(null);
+      }
     } catch (err) {
       console.error("Error fetching machine summary:", err);
     } finally {
