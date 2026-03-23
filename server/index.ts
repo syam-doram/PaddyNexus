@@ -749,8 +749,8 @@ app.get('/api/farmer-settlements', async (req, res) => {
       const lot = lots.find(l => l.id === b.lotId);
       if (!lot) return;
 
-      // Only show details in settlements once the lot is delivered to mill or later
-      const deliveredStages = ['DELIVERED TO MILL', 'QUALITY CHECK', 'PAID', 'SETTLED'];
+      // Only show details in settlements once the lot is loaded, delivered to mill or later
+      const deliveredStages = ['LOADED', 'IN TRANSIT', 'DELIVERED TO MILL', 'QUALITY CHECK', 'PAID', 'SETTLED'];
       if (!deliveredStages.includes(lot.stage)) return;
 
       if (!farmerGroups.has(farmerName)) {
@@ -1669,7 +1669,10 @@ app.get('/api/mill-settlements', async (req, res) => {
     if (traderId) millFilter.trader_id = traderId;
     const mills = await Mill.find(millFilter);
 
-    const match: any = { date: { $regex: `^${targetYear}` } };
+    const match: any = { 
+      date: { $regex: `^${targetYear}` },
+      stage: { $in: ['DELIVERED TO MILL', 'QUALITY CHECK', 'PAID', 'SETTLED'] }
+    };
     if (traderId) match.trader_id = traderId;
 
     const lotStats = await Lot.aggregate([
@@ -1680,7 +1683,15 @@ app.get('/api/mill-settlements', async (req, res) => {
       { $unwind: { path: '$batches', preserveNullAndEmptyArrays: true } },
       {
         $group: {
-          _id: { lotId: '$id', millName: '$mill_name', manualDeductionsApplied: '$manual_deductions_applied', moistureLoss: '$moisture_loss', bagPenalty: '$bag_penalty', laborCost: '$labor_cost' },
+          _id: { 
+            lotId: '$id', 
+            millName: '$mill_name', 
+            stage: '$stage',
+            manualDeductionsApplied: '$manual_deductions_applied', 
+            moistureLoss: '$moisture_loss', 
+            bagPenalty: '$bag_penalty', 
+            laborCost: '$labor_cost' 
+          },
           bags: { $sum: '$batches.bags' },
           grossAmountBeforeDeductions: { $sum: { $add: [
             { $multiply: ['$batches.bags', { $ifNull: [{ $arrayElemAt: ['$lotRates.rate', 0] }, 1200] }] },
@@ -1702,10 +1713,10 @@ app.get('/api/mill-settlements', async (req, res) => {
       },
       {
         $group: {
-          _id: { "millName": { "$toLower": '$_id.millName' }, "lotId": '$_id.lotId', "stage": '$stage' }, // Include stage for settled/pending count
+          _id: { "millName": { "$toLower": '$_id.millName' }, "lotId": '$_id.lotId' }, 
           totalBags: { $sum: '$bags' },
           netAmount: { $sum: '$netAmountForLot' },
-          stage: { $first: '$stage' } // Keep stage for filtering
+          stage: { $first: '$_id.stage' } 
         }
       },
       {
@@ -1717,7 +1728,7 @@ app.get('/api/mill-settlements', async (req, res) => {
           pendingLots: { $sum: { $cond: [{ $ne: ['$stage', 'SETTLED'] }, 1, 0] } }
         }
       }
-    ]);
+    ]).allowDiskUse(true);
 
     const payments = await MillPayment.aggregate([
       { $match: { date: { $regex: `^${targetYear}` } } },
@@ -1764,13 +1775,23 @@ app.get('/api/mill-settlements/:millId', async (req, res) => {
     if (traderId && mill.trader_id && mill.trader_id.toString() !== traderId.toString()) return res.status(403).json({ error: 'Access denied' });
 
     const lots = await Lot.aggregate([
-      { $match: { mill_name: { $regex: new RegExp(`^${mill.name}$`, 'i') }, date: { $regex: `^${targetYear}` } } },
+      { 
+        $match: { 
+          mill_name: { $regex: new RegExp(`^${mill.name}$`, 'i') }, 
+          date: { $regex: `^${targetYear}` },
+          stage: { $in: ['DELIVERED TO MILL', 'QUALITY CHECK', 'PAID', 'SETTLED'] }
+        } 
+      },
       { $lookup: { from: 'batches', localField: 'id', foreignField: 'lotId', as: 'batches' } },
       { $lookup: { from: 'lotrates', localField: 'id', foreignField: 'lotId', as: 'lotRate' } },
       { $lookup: { from: 'commission_rates', pipeline: [{ $match: { year: targetYear } }], as: 'comm' } },
       {
         $addFields: {
           totalBags: { $sum: '$batches.bags' },
+          totalWeightKgs: { $sum: { $map: { input: '$batches', as: 'b', in: { $convert: { input: { $arrayElemAt: [{ $split: [{ $ifNull: [{ $toString: "$$b.weight" }, "0"] }, " "] }, 0] }, to: "double", onError: 0, onNull: 0 } } } } },
+          paddyRate: { $ifNull: [{ $arrayElemAt: ['$lotRate.rate', 0] }, 1200] },
+          dealer_commission_rate: { $ifNull: [{ $arrayElemAt: ['$comm.bag_rate', 0] }, 0] },
+          labour_commission_rate: { $ifNull: [{ $arrayElemAt: ['$comm.labour_rate', 0] }, 0] },
           totalAmount: { $sum: { $map: { input: '$batches', as: 'b', in: { $add: [
             { $multiply: ['$$b.bags', { $ifNull: [{ $arrayElemAt: ['$lotRate.rate', 0] }, 1200] }] },
             { $multiply: ['$$b.bags', { $ifNull: [{ $arrayElemAt: ['$comm.bag_rate', 0] }, 0] }] },
@@ -1778,7 +1799,7 @@ app.get('/api/mill-settlements/:millId', async (req, res) => {
           ] } } } }
         }
       }
-    ]);
+    ]).allowDiskUse(true);
 
     const payments = await MillPayment.find({ mill_id: millId, date: { $regex: `^${targetYear}` } }).sort({ date: -1 });
     const settle = await SettlementStatus.findOne({ mill_id: millId, year: targetYear, type: 'MILL' });
