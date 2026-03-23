@@ -1682,38 +1682,42 @@ app.get('/api/mill-settlements', async (req, res) => {
     if (traderId) millFilter.trader_id = traderId;
     const mills = await Mill.find(millFilter).lean();
 
-    // 1. Fetch all relevant data for the season
+    // 1. Fetch all relevant lots for the season
     const lotMatch: any = { 
       date: { $regex: `^${targetYear}` },
       stage: { $in: ['DELIVERED TO MILL', 'QUALITY CHECK', 'PAID', 'SETTLED'] }
     };
     if (traderId) lotMatch.trader_id = traderId;
 
-    const [lots, batches, lotRates, commRates, payments, settleStatuses] = await Promise.all([
-      Lot.find(lotMatch).lean(),
-      Batch.find({ date: { $regex: `^${targetYear}` } }).lean(),
-      LotRate.find().lean(),
+    const lotsForSeason = await Lot.find(lotMatch).lean();
+    const lotIds = lotsForSeason.map(l => l.id);
+
+    // 2. Fetch specific batches, rates and commissions
+    const [batches, lotRates, commRates, payments, settleStatuses] = await Promise.all([
+      Batch.find({ lotId: { $in: lotIds } }).lean(),
+      LotRate.find({ lotId: { $in: lotIds } }).lean(),
       CommissionRate.find().lean(),
       MillPayment.find({ date: { $regex: `^${targetYear}` } }).lean(),
       SettlementStatus.find({ year: targetYear, type: 'MILL' }).lean()
     ]);
 
-    // 2. Build index for fast lookup
+    // 3. Build lookup maps
     const batchesByLot = new Map();
     batches.forEach(b => {
       if (!batchesByLot.has(b.lotId)) batchesByLot.set(b.lotId, []);
       batchesByLot.get(b.lotId).push(b);
     });
-
     const ratesByLot = new Map(lotRates.map(r => [r.lotId, r.rate]));
 
-    // 3. Process each mill
+    // 4. Process mills
     const results = mills.map(mill => {
-      // Find lots belonging to this mill (by name or ID)
-      const millLots = lots.filter(l => 
-        l.mill_name?.toLowerCase() === mill.name.toLowerCase() || 
-        l.mill_name === mill.id
-      );
+      const millNameClean = (mill.name || '').trim().toLowerCase();
+      const millIdClean = (mill.id || '').trim().toLowerCase();
+
+      const millLots = lotsForSeason.filter(l => {
+        const lotMill = (l.mill_name || '').trim().toLowerCase();
+        return lotMill === millNameClean || lotMill === millIdClean;
+      });
 
       let totalGross = 0;
       let totalBags = 0;
@@ -1734,7 +1738,6 @@ app.get('/api/mill-settlements', async (req, res) => {
         const labour_comm = comm?.labour_rate || 0;
 
         let lotValue = (weightSum * (paddyRate / 73)) + (bagSum * dealer_comm) + (bagSum * labour_comm);
-        
         if (lot.manual_deductions_applied === 1) {
           lotValue -= ((lot.moisture_loss || 0) + (lot.bag_penalty || 0) + (lot.labor_cost || 0));
         }
@@ -1760,8 +1763,7 @@ app.get('/api/mill-settlements', async (req, res) => {
         netBalance: totalGross - totalPaid,
         settledLots: settledCount,
         pendingLots: millLots.length - settledCount,
-        is_settled: settle?.is_settled ? 1 : 0,
-        settled_at: settle?.settled_at
+        is_settled: settle?.is_settled ? 1 : 0
       };
     }).sort((a, b) => b.netBalance - a.netBalance);
 
@@ -1771,6 +1773,7 @@ app.get('/api/mill-settlements', async (req, res) => {
     res.status(500).json({ error: 'Internal Server Error', message: error.message });
   }
 });
+
 
 app.get('/api/mill-settlements/:millId', async (req, res) => {
   const { millId } = req.params;
@@ -1786,18 +1789,22 @@ app.get('/api/mill-settlements/:millId', async (req, res) => {
       return res.status(403).json({ error: 'Access denied' });
     }
 
-    // 1. Fetch Lots
+    // 1. Fetch Lots for the year (to filter by mill in JS for robustness)
     const lotMatch: any = { 
-      $or: [
-        { mill_name: { $regex: new RegExp(`^${mill.name}$`, 'i') } },
-        { mill_name: { $regex: new RegExp(`^${mill.id}$`, 'i') } }
-      ],
       date: { $regex: `^${targetYear}` },
       stage: { $in: ['DELIVERED TO MILL', 'QUALITY CHECK', 'PAID', 'SETTLED'] }
     };
     if (mill.trader_id) lotMatch.trader_id = mill.trader_id;
 
-    const lots = await Lot.find(lotMatch).lean();
+    const allLotsSeason = await Lot.find(lotMatch).lean();
+    const millNameClean = (mill.name || '').trim().toLowerCase();
+    const millIdClean = (mill.id || '').trim().toLowerCase();
+
+    const lots = allLotsSeason.filter(l => {
+      const lotMill = (l.mill_name || '').trim().toLowerCase();
+      return lotMill === millNameClean || lotMill === millIdClean;
+    });
+    
     const lotIds = lots.map(l => l.id);
 
     // 2. Fetch Related Data in Parallel
