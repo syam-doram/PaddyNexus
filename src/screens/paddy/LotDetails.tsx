@@ -102,7 +102,8 @@ export default function LotDetails() {
           } else {
             uiProps = { icon: LayoutGrid, iconColor: 'text-blue-600', iconBg: 'bg-blue-100' };
           }
-          return { ...item, ...uiProps };
+          // Ensure id alias exists for components that expect it
+          return { ...item, id: item._id, ...uiProps };
         });
         setBatches(mappedData);
         const calcBags = data.reduce((acc: number, curr: any) => acc + (parseInt(curr.bags) || 0), 0);
@@ -614,7 +615,7 @@ export default function LotDetails() {
                         {batches.length > 0 ? (
                             batches.map((batch, index) => (
                                 <motion.div
-                                    key={batch.id}
+                                    key={batch._id || batch.id}
                                     initial={{ opacity: 0, scale: 0.98 }}
                                     animate={{ opacity: 1, scale: 1 }}
                                     transition={{ delay: index * 0.05 }}

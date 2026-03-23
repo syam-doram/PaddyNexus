@@ -803,7 +803,10 @@ export default function MillSettlement() {
                       const lotGross = (lot.totalWeightKgs || 0) * (lot.paddyRate / 73);
                       const lotTrader = (lot.totalBags || 0) * (lot.dealer_commission_rate || 0);
                       const lotLabour = (lot.totalBags || 0) * (lot.labour_commission_rate || 0);
-                      const lotCombinedGross = lotGross + lotTrader + lotLabour;
+                      const moistureLoss = (lot.manual_deductions_applied === 1) ? (lot.moisture_loss || 0) : 0;
+                      const bagPenalty = (lot.manual_deductions_applied === 1) ? (lot.bag_penalty || 0) : 0;
+                      const laborCost = (lot.manual_deductions_applied === 1) ? (lot.labor_cost || 0) : 0;
+                      const lotCombinedGross = (lotGross + lotTrader + lotLabour) - (moistureLoss + bagPenalty + laborCost);
 
                       return (
                         <tr key={`lot-${lot.id}`} className="group hover:bg-slate-50 dark:hover:bg-white/5 transition-colors cursor-pointer" onClick={() => setSelectedLotId(lot.id)}>
@@ -840,7 +843,7 @@ export default function MillSettlement() {
                     {payments.map((p: any) => {
                       const associatedLot = lots.find((l: any) => l.id === p.lotId);
                       return (
-                        <tr key={`pay-${p.id}`} className="group hover:bg-slate-50 dark:hover:bg-white/5 transition-colors border-l-4 border-l-primary">
+                        <tr key={`pay-${p._id || p.id}`} className="group hover:bg-slate-50 dark:hover:bg-white/5 transition-colors border-l-4 border-l-primary">
                           <td className="px-6 md:px-12 py-5 md:py-7">
                             <div className="flex items-center gap-3 md:gap-4">
                               <div className="w-8 h-8 md:w-10 md:h-10 rounded-lg md:rounded-xl bg-primary/10 flex items-center justify-center text-primary group-hover:scale-110 transition-transform shrink-0">
@@ -1500,9 +1503,9 @@ function MillLotDashboard({
             </thead>
             <tbody className="divide-y divide-slate-50 dark:divide-white/5">
               {payments.length > 0 ? payments.map((p: any) => (
-                <tr key={p.id} className="group hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
+                <tr key={p._id || p.id} className="group hover:bg-slate-50 dark:hover:bg-white/5 transition-colors">
                   <td className="px-6 md:px-12 py-5 md:py-7 text-xs font-bold text-slate-500 uppercase">{p.date}</td>
-                  <td className="hidden md:table-cell px-12 py-7 text-xs font-black text-slate-900 dark:text-white uppercase italic tracking-tighter">REMT-{p.id}</td>
+                  <td className="hidden md:table-cell px-12 py-7 text-xs font-black text-slate-900 dark:text-white uppercase italic tracking-tighter">REMT-{(p._id || p.id).toString().slice(-4).toUpperCase()}</td>
                   <td className="px-6 md:px-12 py-5 md:py-7">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center text-primary border border-primary/20 shrink-0">

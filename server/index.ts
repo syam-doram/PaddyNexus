@@ -1,4 +1,5 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { User, Lot, Batch, Machine, MachineLog, CommissionRate, Mill, LabourGroup, LabourMember, Operator, PaddyMarket, Silo, SettlementStatus, FarmerAdvance, MachineAdvance, MillPayment, LotRate } from './db.js';
@@ -1694,7 +1695,10 @@ app.get('/api/mill-settlements', async (req, res) => {
           },
           bags: { $sum: '$batches.bags' },
           grossAmountBeforeDeductions: { $sum: { $add: [
-            { $multiply: ['$batches.bags', { $ifNull: [{ $arrayElemAt: ['$lotRates.rate', 0] }, 1200] }] },
+            { $multiply: [
+              { $convert: { input: { $arrayElemAt: [{ $split: [{ $ifNull: [{ $toString: "$batches.weight" }, "0"] }, " "] }, 0] }, to: "double", onError: 0, onNull: 0 } },
+              { $divide: [{ $ifNull: [{ $arrayElemAt: ['$lotRates.rate', 0] }, 1200] }, 73] }
+            ] },
             { $multiply: ['$batches.bags', { $ifNull: [{ $arrayElemAt: ['$comm.bag_rate', 0] }, 0] }] },
             { $multiply: ['$batches.bags', { $ifNull: [{ $arrayElemAt: ['$comm.labour_rate', 0] }, 0] }] }
           ] } }
@@ -1777,26 +1781,43 @@ app.get('/api/mill-settlements/:millId', async (req, res) => {
     const lots = await Lot.aggregate([
       { 
         $match: { 
-          mill_name: { $regex: new RegExp(`^${mill.name}$`, 'i') }, 
+          $or: [
+            { mill_name: { $regex: new RegExp(`^${mill.name}$`, 'i') } },
+            { mill_name: { $regex: new RegExp(`^${mill.id}$`, 'i') } }
+          ],
           date: { $regex: `^${targetYear}` },
-          stage: { $in: ['DELIVERED TO MILL', 'QUALITY CHECK', 'PAID', 'SETTLED'] }
+          stage: { $in: ['DELIVERED TO MILL', 'QUALITY CHECK', 'PAID', 'SETTLED'] },
+          ...(mill.trader_id && { trader_id: mill.trader_id })
         } 
       },
       { $lookup: { from: 'batches', localField: 'id', foreignField: 'lotId', as: 'batches' } },
       { $lookup: { from: 'lotrates', localField: 'id', foreignField: 'lotId', as: 'lotRate' } },
-      { $lookup: { from: 'commission_rates', pipeline: [{ $match: { year: targetYear } }], as: 'comm' } },
+      { $lookup: { from: 'commission_rates', pipeline: [{ $match: { year: parseInt(targetYear) } }], as: 'comm' } },
       {
         $addFields: {
           totalBags: { $sum: '$batches.bags' },
           totalWeightKgs: { $sum: { $map: { input: '$batches', as: 'b', in: { $convert: { input: { $arrayElemAt: [{ $split: [{ $ifNull: [{ $toString: "$$b.weight" }, "0"] }, " "] }, 0] }, to: "double", onError: 0, onNull: 0 } } } } },
           paddyRate: { $ifNull: [{ $arrayElemAt: ['$lotRate.rate', 0] }, 1200] },
           dealer_commission_rate: { $ifNull: [{ $arrayElemAt: ['$comm.bag_rate', 0] }, 0] },
-          labour_commission_rate: { $ifNull: [{ $arrayElemAt: ['$comm.labour_rate', 0] }, 0] },
-          totalAmount: { $sum: { $map: { input: '$batches', as: 'b', in: { $add: [
-            { $multiply: ['$$b.bags', { $ifNull: [{ $arrayElemAt: ['$lotRate.rate', 0] }, 1200] }] },
-            { $multiply: ['$$b.bags', { $ifNull: [{ $arrayElemAt: ['$comm.bag_rate', 0] }, 0] }] },
-            { $multiply: ['$$b.bags', { $ifNull: [{ $arrayElemAt: ['$comm.labour_rate', 0] }, 0] }] }
-          ] } } } }
+          labour_commission_rate: { $ifNull: [{ $arrayElemAt: ['$comm.labour_rate', 0] }, 0] }
+        }
+      },
+      {
+        $addFields: {
+          totalAmount: { 
+            $subtract: [
+              { $add: [
+                { $multiply: ['$totalWeightKgs', { $divide: ['$paddyRate', 73] }] },
+                { $multiply: ['$totalBags', '$dealer_commission_rate'] },
+                { $multiply: ['$totalBags', '$labour_commission_rate'] }
+              ] },
+              { $cond: {
+                if: { $eq: ['$manual_deductions_applied', 1] },
+                then: { $add: [{ $ifNull: ['$moisture_loss', 0] }, { $ifNull: ['$bag_penalty', 0] }, { $ifNull: ['$labor_cost', 0] }] },
+                else: 0
+              } }
+            ]
+          }
         }
       }
     ]).allowDiskUse(true);
