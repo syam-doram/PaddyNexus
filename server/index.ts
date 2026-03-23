@@ -806,7 +806,7 @@ app.get('/api/farmer-settlements', async (req, res) => {
       let lotEntry = group.lots.find((l: any) => (l.lotId || '').trim().toLowerCase() === lotIdKey);
       if (!lotEntry) {
         lotEntry = {
-          lotId: lotIdTrimmed,
+          lotId: lotIdKey,
           date: lot.date,
           stage: lot.stage,
           paddyType: lot.type,
