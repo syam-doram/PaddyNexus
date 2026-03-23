@@ -1675,107 +1675,99 @@ app.post('/api/farmer-settlements/reopen', async (req, res) => {
 
 app.get('/api/mill-settlements', async (req, res) => {
   const { year, traderId } = req.query;
-  const targetYear = year || new Date().getFullYear().toString();
+  const targetYear = (year as string) || new Date().getFullYear().toString();
+
   try {
     const millFilter: any = {};
     if (traderId) millFilter.trader_id = traderId;
-    const mills = await Mill.find(millFilter);
+    const mills = await Mill.find(millFilter).lean();
 
-    const match: any = { 
+    // 1. Fetch all relevant data for the season
+    const lotMatch: any = { 
       date: { $regex: `^${targetYear}` },
       stage: { $in: ['DELIVERED TO MILL', 'QUALITY CHECK', 'PAID', 'SETTLED'] }
     };
-    if (traderId) match.trader_id = traderId;
+    if (traderId) lotMatch.trader_id = traderId;
 
-    const lotStats = await Lot.aggregate([
-      { $match: match },
-      { $lookup: { from: 'batches', localField: 'id', foreignField: 'lotId', as: 'batches' } },
-      { $lookup: { from: 'lotrates', localField: 'id', foreignField: 'lotId', as: 'lotRates' } },
-      { $lookup: { from: 'commission_rates', let: { year: { $substr: ['$date', 0, 4] } }, pipeline: [{ $match: { $expr: { $eq: ['$year', { $toInt: '$$year' }] } } }], as: 'comm' } }, // Corrected $toInt for year comparison
-      { $unwind: { path: '$batches', preserveNullAndEmptyArrays: true } },
-      {
-        $group: {
-          _id: { 
-            lotId: '$id', 
-            millName: '$mill_name', 
-            stage: '$stage',
-            manualDeductionsApplied: '$manual_deductions_applied', 
-            moistureLoss: '$moisture_loss', 
-            bagPenalty: '$bag_penalty', 
-            laborCost: '$labor_cost' 
-          },
-          bags: { $sum: '$batches.bags' },
-          grossAmountBeforeDeductions: { $sum: { $add: [
-            { $multiply: [
-              { $convert: { input: { $arrayElemAt: [{ $split: [{ $ifNull: [{ $toString: "$batches.weight" }, "0"] }, " "] }, 0] }, to: "double", onError: 0, onNull: 0 } },
-              { $divide: [{ $ifNull: [{ $arrayElemAt: ['$lotRates.rate', 0] }, 1200] }, 73] }
-            ] },
-            { $multiply: ['$batches.bags', { $ifNull: [{ $arrayElemAt: ['$comm.bag_rate', 0] }, 0] }] },
-            { $multiply: ['$batches.bags', { $ifNull: [{ $arrayElemAt: ['$comm.labour_rate', 0] }, 0] }] }
-          ] } }
-        }
-      },
-      {
-        $addFields: {
-          netAmountForLot: {
-            $cond: {
-              if: { $eq: ['$_id.manualDeductionsApplied', 1] },
-              then: { $subtract: ['$_id.grossAmountBeforeDeductions', { $add: [{ $ifNull: ['$_id.moistureLoss', 0] }, { $ifNull: ['$_id.bagPenalty', 0] }, { $ifNull: ['$_id.laborCost', 0] }] }] },
-              else: '$grossAmountBeforeDeductions'
-            }
-          }
-        }
-      },
-      {
-        $group: {
-          _id: { "millName": { "$toLower": '$_id.millName' }, "lotId": '$_id.lotId' }, 
-          totalBags: { $sum: '$bags' },
-          netAmount: { $sum: '$netAmountForLot' },
-          stage: { $first: '$_id.stage' } 
-        }
-      },
-      {
-        $group: {
-          _id: '$_id.millName',
-          totalBags: { $sum: '$totalBags' },
-          netAmount: { $sum: '$netAmount' },
-          settledLots: { $sum: { $cond: [{ $eq: ['$stage', 'SETTLED'] }, 1, 0] } },
-          pendingLots: { $sum: { $cond: [{ $ne: ['$stage', 'SETTLED'] }, 1, 0] } }
-        }
-      }
-    ]).allowDiskUse(true);
-
-    const payments = await MillPayment.aggregate([
-      { $match: { date: { $regex: `^${targetYear}` } } },
-      { $group: { _id: '$mill_id', total: { $sum: '$amount' } } }
+    const [lots, batches, lotRates, commRates, payments, settleStatuses] = await Promise.all([
+      Lot.find(lotMatch).lean(),
+      Batch.find({ date: { $regex: `^${targetYear}` } }).lean(),
+      LotRate.find().lean(),
+      CommissionRate.find().lean(),
+      MillPayment.find({ date: { $regex: `^${targetYear}` } }).lean(),
+      SettlementStatus.find({ year: targetYear, type: 'MILL' }).lean()
     ]);
 
-    const statusList = await SettlementStatus.find({ year: targetYear, type: 'MILL' });
+    // 2. Build index for fast lookup
+    const batchesByLot = new Map();
+    batches.forEach(b => {
+      if (!batchesByLot.has(b.lotId)) batchesByLot.set(b.lotId, []);
+      batchesByLot.get(b.lotId).push(b);
+    });
 
-    const results = mills.map(m => {
-      const stats = lotStats.find(s => s._id === m.name.toLowerCase()) || { totalBags: 0, netAmount: 0, settledLots: 0, pendingLots: 0 };
-      const paid = payments.find(p => p._id === m.id) || { total: 0 };
-      const settle = statusList.find(s => s.mill_id === m.id);
+    const ratesByLot = new Map(lotRates.map(r => [r.lotId, r.rate]));
+
+    // 3. Process each mill
+    const results = mills.map(mill => {
+      // Find lots belonging to this mill (by name or ID)
+      const millLots = lots.filter(l => 
+        l.mill_name?.toLowerCase() === mill.name.toLowerCase() || 
+        l.mill_name === mill.id
+      );
+
+      let totalGross = 0;
+      let totalBags = 0;
+      let settledCount = 0;
+
+      millLots.forEach(lot => {
+        const lb = batchesByLot.get(lot.id) || [];
+        const bagSum = lb.reduce((s, b) => s + (b.bags || 0), 0);
+        const weightSum = lb.reduce((s, b) => {
+          const wNum = parseFloat(String(b.weight || '0').split(' ')[0]);
+          return s + (isNaN(wNum) ? 0 : wNum);
+        }, 0);
+
+        const paddyRate = ratesByLot.get(lot.id) || 1200;
+        const lotYear = lot.date.split('-')[0];
+        const comm = commRates.find(c => c.year === parseInt(lotYear));
+        const dealer_comm = comm?.bag_rate || 0;
+        const labour_comm = comm?.labour_rate || 0;
+
+        let lotValue = (weightSum * (paddyRate / 73)) + (bagSum * dealer_comm) + (bagSum * labour_comm);
+        
+        if (lot.manual_deductions_applied === 1) {
+          lotValue -= ((lot.moisture_loss || 0) + (lot.bag_penalty || 0) + (lot.labor_cost || 0));
+        }
+
+        totalGross += lotValue;
+        totalBags += bagSum;
+        if (lot.stage === 'SETTLED') settledCount++;
+      });
+
+      const millPayments = payments.filter(p => p.mill_id === mill.id);
+      const totalPaid = millPayments.reduce((s, p) => s + (p.amount || 0), 0);
+      const settle = settleStatuses.find(s => s.mill_id === mill.id);
+
       return {
-        id: m.id,
-        name: m.name,
-        location: m.location,
-        contact_person: m.contact_person,
-        phone: m.phone,
-        totalBags: stats.totalBags,
-        totalDeliveredAmount: stats.netAmount,
-        settledLots: stats.settledLots,
-        pendingLots: stats.pendingLots,
-        totalPaidAmount: paid.total,
-        netBalance: stats.netAmount - paid.total,
+        id: mill.id,
+        name: mill.name,
+        location: mill.location || 'Unknown',
+        contact_person: mill.contact_person,
+        phone: mill.phone,
+        totalBags,
+        totalDeliveredAmount: totalGross,
+        totalPaidAmount: totalPaid,
+        netBalance: totalGross - totalPaid,
+        settledLots: settledCount,
+        pendingLots: millLots.length - settledCount,
         is_settled: settle?.is_settled ? 1 : 0,
         settled_at: settle?.settled_at
       };
-    });
+    }).sort((a, b) => b.netBalance - a.netBalance);
 
     res.json(results);
   } catch (error: any) {
-    console.error("Database error (mill-settlements):", error);
+    console.error("Database error (get mill settlements list):", error);
     res.status(500).json({ error: 'Internal Server Error', message: error.message });
   }
 });
@@ -1783,67 +1775,99 @@ app.get('/api/mill-settlements', async (req, res) => {
 app.get('/api/mill-settlements/:millId', async (req, res) => {
   const { millId } = req.params;
   const { year, traderId } = req.query;
-  const targetYear = year || new Date().getFullYear().toString();
+  const targetYear = (year as string) || new Date().getFullYear().toString();
+
   try {
     const mill = await Mill.findOne({ id: millId });
     if (!mill) return res.status(404).json({ error: 'Mill not found' });
-    if (traderId && mill.trader_id && mill.trader_id.toString() !== traderId.toString()) return res.status(403).json({ error: 'Access denied' });
+    
+    // Security check
+    if (traderId && mill.trader_id && mill.trader_id.toString() !== traderId.toString()) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
 
-    const lots = await Lot.aggregate([
-      { 
-        $match: { 
-          $or: [
-            { mill_name: { $regex: new RegExp(`^${mill.name}$`, 'i') } },
-            { mill_name: { $regex: new RegExp(`^${mill.id}$`, 'i') } }
-          ],
-          date: { $regex: `^${targetYear}` },
-          stage: { $in: ['DELIVERED TO MILL', 'QUALITY CHECK', 'PAID', 'SETTLED'] },
-          ...(mill.trader_id && { trader_id: mill.trader_id })
-        } 
-      },
-      { $lookup: { from: 'batches', localField: 'id', foreignField: 'lotId', as: 'batches' } },
-      { $lookup: { from: 'lotrates', localField: 'id', foreignField: 'lotId', as: 'lotRate' } },
-      { $lookup: { from: 'commission_rates', pipeline: [{ $match: { year: parseInt(targetYear) } }], as: 'comm' } },
-      {
-        $addFields: {
-          totalBags: { $sum: '$batches.bags' },
-          totalWeightKgs: { $sum: { $map: { input: '$batches', as: 'b', in: { $convert: { input: { $arrayElemAt: [{ $split: [{ $ifNull: [{ $toString: "$$b.weight" }, "0"] }, " "] }, 0] }, to: "double", onError: 0, onNull: 0 } } } } },
-          paddyRate: { $ifNull: [{ $arrayElemAt: ['$lotRate.rate', 0] }, 1200] },
-          dealer_commission_rate: { $ifNull: [{ $arrayElemAt: ['$comm.bag_rate', 0] }, 0] },
-          labour_commission_rate: { $ifNull: [{ $arrayElemAt: ['$comm.labour_rate', 0] }, 0] }
-        }
-      },
-      {
-        $addFields: {
-          totalAmount: { 
-            $subtract: [
-              { $add: [
-                { $multiply: ['$totalWeightKgs', { $divide: ['$paddyRate', 73] }] },
-                { $multiply: ['$totalBags', '$dealer_commission_rate'] },
-                { $multiply: ['$totalBags', '$labour_commission_rate'] }
-              ] },
-              { $cond: {
-                if: { $eq: ['$manual_deductions_applied', 1] },
-                then: { $add: [{ $ifNull: ['$moisture_loss', 0] }, { $ifNull: ['$bag_penalty', 0] }, { $ifNull: ['$labor_cost', 0] }] },
-                else: 0
-              } }
-            ]
-          }
-        }
+    // 1. Fetch Lots
+    const lotMatch: any = { 
+      $or: [
+        { mill_name: { $regex: new RegExp(`^${mill.name}$`, 'i') } },
+        { mill_name: { $regex: new RegExp(`^${mill.id}$`, 'i') } }
+      ],
+      date: { $regex: `^${targetYear}` },
+      stage: { $in: ['DELIVERED TO MILL', 'QUALITY CHECK', 'PAID', 'SETTLED'] }
+    };
+    if (mill.trader_id) lotMatch.trader_id = mill.trader_id;
+
+    const lots = await Lot.find(lotMatch).lean();
+    const lotIds = lots.map(l => l.id);
+
+    // 2. Fetch Related Data in Parallel
+    const [batches, lotRates, commRate, payments, settleStatus] = await Promise.all([
+      Batch.find({ lotId: { $in: lotIds } }).lean(),
+      LotRate.find({ lotId: { $in: lotIds } }).lean(),
+      CommissionRate.findOne({ year: parseInt(targetYear) }).lean(),
+      MillPayment.find({ mill_id: millId, date: { $regex: `^${targetYear}` } }).sort({ date: -1 }).lean(),
+      SettlementStatus.findOne({ mill_id: millId, year: targetYear, type: 'MILL' }).lean()
+    ]);
+
+    const dealer_comm = commRate?.bag_rate || 0;
+    const labour_comm = commRate?.labour_rate || 0;
+
+    // 3. Process Lots in JS
+    const processedLots = lots.map(lot => {
+      const lotBatches = batches.filter(b => b.lotId === lot.id);
+      const rateRow = lotRates.find(r => r.lotId === lot.id);
+      
+      const totalBags = lotBatches.reduce((sum, b) => sum + (b.bags || 0), 0);
+      const totalWeightKgs = lotBatches.reduce((sum, b) => {
+        const wStr = String(b.weight || '0').split(' ')[0];
+        const wNum = parseFloat(wStr);
+        return sum + (isNaN(wNum) ? 0 : wNum);
+      }, 0);
+
+      const paddyRate = rateRow?.rate || 1200;
+      
+      // Calculate amount consistent with frontend logic
+      const lotValue = totalWeightKgs * (paddyRate / 73);
+      const traderValue = totalBags * dealer_comm;
+      const labourValue = totalBags * labour_comm;
+      
+      let baseAmount = lotValue + traderValue + labourValue;
+      
+      // Apply deductions if applicable
+      if (lot.manual_deductions_applied === 1) {
+        const deductions = (lot.moisture_loss || 0) + (lot.bag_penalty || 0) + (lot.labor_cost || 0);
+        baseAmount -= deductions;
       }
-    ]).allowDiskUse(true);
 
-    const payments = await MillPayment.find({ mill_id: millId, date: { $regex: `^${targetYear}` } }).sort({ date: -1 });
-    const settle = await SettlementStatus.findOne({ mill_id: millId, year: targetYear, type: 'MILL' });
+      return {
+        ...lot,
+        totalBags,
+        totalWeightKgs,
+        paddyRate,
+        dealer_commission_rate: dealer_comm,
+        labour_commission_rate: labour_comm,
+        totalAmount: baseAmount
+      };
+    });
 
-    const totalDelivered = lots.reduce((sum, l) => sum + (l.totalAmount || 0), 0);
+    const totalDelivered = processedLots.reduce((sum, l) => sum + (l.totalAmount || 0), 0);
     const totalPaid = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
 
     res.json({
-      mill, lots, payments,
-      summary: { totalDelivered, totalPaid, netBalance: totalDelivered - totalPaid, is_settled: settle?.is_settled ? 1 : 0, settled_at: settle?.settled_at }
+      mill,
+      lots: processedLots,
+      payments,
+      summary: {
+        totalDelivered,
+        totalPaid,
+        netBalance: totalDelivered - totalPaid,
+        is_settled: settleStatus?.is_settled ? 1 : 0,
+        settled_at: settleStatus?.settled_at,
+        totalBags: processedLots.reduce((sum, l) => sum + (l.totalBags || 0), 0)
+      }
     });
   } catch (error: any) {
+    console.error("Database error (get mill settlement detail):", error);
     res.status(500).json({ error: 'Internal Server Error', message: error.message });
   }
 });
