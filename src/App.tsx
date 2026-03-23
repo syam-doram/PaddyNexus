@@ -109,6 +109,8 @@ function AppContent() {
             <Route path="/machine-settlement/:machineId" element={<ProtectedRoute allowedRoles={['machine_harvest', 'trader']}><Lazy.MachineSettleDetail /></ProtectedRoute>} />
             <Route path="/maintenance" element={<ProtectedRoute allowedRoles={['machine_harvest', 'paddy_harvest', 'trader']}><Lazy.MaintenanceAlerts /></ProtectedRoute>} />
             <Route path="/farmer-harvest" element={<ProtectedRoute allowedRoles={['machine_harvest', 'trader']}><Lazy.FarmerHarvest /></ProtectedRoute>} />
+            <Route path="/farmer-harvest-list" element={<ProtectedRoute allowedRoles={['machine_harvest', 'trader']}><Lazy.FarmerHarvestList /></ProtectedRoute>} />
+
 
             {/* Paddy Harvest Roles */}
             <Route path="/lots" element={<ProtectedRoute allowedRoles={['paddy_harvest', 'trader']}><Lazy.Lots /></ProtectedRoute>} />
