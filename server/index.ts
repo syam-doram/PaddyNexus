@@ -1770,26 +1770,41 @@ app.get('/api/mill-settlements', async (req, res) => {
       millLots.forEach(lot => {
         const lotIdKey = (lot.id || '').trim().toLowerCase();
         const lb = batchesByLot.get(lotIdKey) || [];
-        const bagSum = lb.reduce((s, b) => s + (b.bags || 0), 0);
+        
+        let bagSum = lb.reduce((s, b) => s + (b.bags || 0), 0);
         const weightSum = lb.reduce((s, b) => {
           const wStr = String(b.weight || '0').replace(/,/g, '').split(' ')[0];
           let wNum = parseFloat(wStr);
           if (isNaN(wNum)) return s;
-          // Heuristic: If weight is small and unit is Ton (or implied by Tons/T/t), multiply by 1000
           if (String(b.weight).toLowerCase().includes('ton') && wNum < 100) wNum *= 1000;
           return s + wNum;
         }, 0);
 
-        // Determine weight consistent with frontend logic: prioritizes scales, then batch weights, then bag-count baseline
+        // Determine weight consistent with frontend logic: prioritizes scales, then batch weights, then lot main weight, then bag-count baseline
         let effectiveWeight = weightSum;
         if (lot.post_load_scale > 0 && lot.pre_load_scale > 0) {
           effectiveWeight = lot.post_load_scale - lot.pre_load_scale;
-        } else if (effectiveWeight === 0 && bagSum > 0) {
-          effectiveWeight = bagSum * 73;
+        } else if (effectiveWeight === 0) {
+          // Check Lot Main Weight as fallback
+          const lotMainWStr = String(lot.weight || '0').replace(/,/g, '').split(' ')[0];
+          let lotMainWNum = parseFloat(lotMainWStr);
+          if (!isNaN(lotMainWNum) && lotMainWNum > 0) {
+            if (String(lot.weight).toLowerCase().includes('ton') && lotMainWNum < 100) lotMainWNum *= 1000;
+            effectiveWeight = lotMainWNum;
+          }
+           // Final fallback: Bags * 73
+          if (effectiveWeight === 0 && bagSum > 0) {
+            effectiveWeight = bagSum * 73;
+          }
+        }
+
+        // If no batches were added, but we have weight, estimate bags for commissions
+        if (bagSum === 0 && effectiveWeight > 0) {
+          bagSum = Math.round(effectiveWeight / 73);
         }
 
         const paddyRate = ratesByLot.get(lotIdKey) || 1200;
-        const lotYear = lot.date.split('-')[0];
+        const lotYear = new Date(lot.date).getFullYear().toString();
         const comm = commRates.find(c => c.year === parseInt(lotYear));
         const dealer_comm = comm?.bag_rate || 0;
         const labour_comm = comm?.labour_rate || 0;
@@ -1806,7 +1821,10 @@ app.get('/api/mill-settlements', async (req, res) => {
         if (lot.stage === 'SETTLED') settledCount++;
       });
 
-      const millPayments = payments.filter(p => p.mill_id === mill.id);
+      const millPayments = payments.filter(p => {
+        const pmId = (p.mill_id || '').trim().toLowerCase();
+        return pmId === millIdClean;
+      });
       const totalPaid = millPayments.reduce((s, p) => s + (p.amount || 0), 0);
       const settle = settleStatuses.find(s => s.mill_id === mill.id);
 
