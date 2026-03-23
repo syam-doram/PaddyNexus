@@ -86,12 +86,20 @@ const LotSchema = new mongoose.Schema({
   gratuity: { type: Number, default: 0 },
   machine_cost: { type: Number, default: 0 },
   machine_id: String,
+  machine_hours: { type: Number, default: 0 },
+  machine_rate: { type: Number, default: 0 },
   labour_group_id: String,
   weigh_scale_kgs: String,
+  amount_type: String,
+  weight_capacity: String,
   settled_at: String,
   trader_id: { type: String },
   pre_load_scale: { type: Number, default: 0 },
-  post_load_scale: { type: Number, default: 0 }
+  post_load_scale: { type: Number, default: 0 },
+  manual_deductions_applied: { type: Number, default: 0 },
+  moisture_loss: { type: Number, default: 0 },
+  bag_penalty: { type: Number, default: 0 },
+  labor_cost: { type: Number, default: 0 }
 });
 
 

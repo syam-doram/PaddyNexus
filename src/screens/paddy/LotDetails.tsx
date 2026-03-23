@@ -67,7 +67,8 @@ export default function LotDetails() {
   const currentWeightKgs = (postLoadScale > 0 && preLoadScale > 0) 
     ? (postLoadScale - preLoadScale) 
     : (totalWeight > 0 ? totalWeight : (totalBags * 73));
-  const totalValue = currentWeightKgs * ((parseFloat(lotRate) || 1200) / 73);
+  const bagWeight = parseFloat(lot.weight_capacity) || 73;
+  const totalValue = (currentWeightKgs / bagWeight) * (parseFloat(lotRate) || 1200);
   
   const isDelivered = lot.stage && !['LOADING', 'LOADED', 'IN TRANSIT'].includes(lot.stage.toUpperCase());
 

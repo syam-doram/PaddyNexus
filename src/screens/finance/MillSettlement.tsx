@@ -254,10 +254,7 @@ export default function MillSettlement() {
                 <td>
                   Lot Valuation
                   <span class="desc-col">
-                    ${(lot.post_load_scale > 0 && lot.pre_load_scale > 0)
-        ? `Net Yield (${(lot.totalWeightKgs).toLocaleString('en-IN')} KG) × Market Rate (₹${lot.paddyRate || 1200} / 73KG Bag)`
-        : `Standard Valuation: ${lot.totalBags || 0} Bags × Market Rate (₹${lot.paddyRate || 1200} / 73KG Bag)`
-      }
+                    Standard Valuation: ${lot.totalBags || 0} Bags × Market Rate (₹${lot.paddyRate || 1200} / 73KG Bag)
                   </span>
                 </td>
                 <td class="val-col">₹${currentLotAmount.toLocaleString('en-IN')}</td>
@@ -611,7 +608,9 @@ export default function MillSettlement() {
   const summary = data.summary || { totalDelivered: 0, totalPaid: 0, netBalance: 0 };
 
   const globalGross = lots.reduce((sum: number, l: any) => {
-    const lotValue = (l.totalWeightKgs || 0) * ((l.paddyRate || 1200) / 73);
+    const bagWeight = parseFloat(l.weight_capacity) || 73;
+    const calcBags = (l.totalWeightKgs || 0) / bagWeight;
+    const lotValue = calcBags * (l.paddyRate || 1200);
     const lotTrader = (l.totalBags || 0) * (l.dealer_commission_rate || 0);
     const lotLabour = (l.totalBags || 0) * (l.labour_commission_rate || 0);
     return sum + lotValue + lotTrader + lotLabour;

@@ -183,7 +183,8 @@ export default function AddLot() {
           gratuity: parseInt(gratuity) || 0,
           labour_group_id: selectedLabourGroupId,
           traderId: user?.id,
-          pre_load_scale: parseFloat(preLoadScale) || 0
+          pre_load_scale: parseFloat(preLoadScale) || 0,
+          weight_capacity: weight
         })
       });
 

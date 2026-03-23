@@ -681,7 +681,8 @@ app.post('/api/lots', async (req, res) => {
       labour_group_id: labour_group_id || null,
       weigh_scale_kgs: weighScaleKgs || '',
       trader_id: traderId || null,
-      pre_load_scale: parseFloat(pre_load_scale) || 0
+      pre_load_scale: parseFloat(pre_load_scale) || 0,
+      weight_capacity: req.body.weight_capacity || '73'
     });
     
     await lot.save();
@@ -1803,13 +1804,17 @@ app.get('/api/mill-settlements', async (req, res) => {
           bagSum = Math.round(effectiveWeight / 73);
         }
 
+        const bagWeight = parseFloat(lot.weight_capacity as string) || 73;
+        const calcBags = effectiveWeight / bagWeight;
+
         const paddyRate = ratesByLot.get(lotIdKey) || 1200;
         const lotYear = new Date(lot.date).getFullYear().toString();
         const comm = commRates.find(c => c.year === parseInt(lotYear));
         const dealer_comm = comm?.bag_rate || 0;
         const labour_comm = comm?.labour_rate || 0;
 
-        let lotValue = (effectiveWeight * (paddyRate / 73)) + (bagSum * dealer_comm) + (bagSum * labour_comm);
+        let grossPaddy = calcBags * paddyRate;
+        let lotValue = grossPaddy + (bagSum * dealer_comm) + (bagSum * labour_comm);
         let lotDeductions = 0;
         if (lot.manual_deductions_applied === 1) {
           lotDeductions = ((lot.moisture_loss || 0) + (lot.bag_penalty || 0) + (lot.labor_cost || 0));
@@ -1921,8 +1926,11 @@ app.get('/api/mill-settlements/:millId', async (req, res) => {
         effectiveWeight = totalBags * 73;
       }
 
-      // Calculate amount consistent with frontend logic (GROSS amount)
-      const lotValue = effectiveWeight * (paddyRate / 73);
+      // Calculate amount consistent with frontend logic (GROSS amount - Bag Weight Based)
+      const bagWeight = parseFloat(lot.weight_capacity as string) || 73;
+      const calcBags = effectiveWeight / bagWeight;
+      
+      const lotValue = calcBags * paddyRate;
       const traderValue = totalBags * dealer_comm;
       const labourValue = totalBags * labour_comm;
       
