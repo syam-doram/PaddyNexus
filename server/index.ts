@@ -739,7 +739,8 @@ app.patch('/api/lots/:id', async (req, res) => {
 // FARMER SETTLEMENT Endpoints
 
 app.get('/api/farmer-settlements', async (req, res) => {
-  const { year, traderId } = req.query;
+  const { year } = req.query;
+  const traderId = (req.query.traderId === 'undefined' || req.query.traderId === 'null') ? null : req.query.traderId;
   const targetYear = (year as string) || new Date().getFullYear().toString();
 
   try {
