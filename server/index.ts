@@ -767,15 +767,18 @@ app.get('/api/farmer-settlements', async (req, res) => {
       FarmerAdvance.find(advanceMatch).lean()
     ]);
 
-    const lotRateMap = new Map(lotRates.map(r => [r.lotId, r.rate]));
+    const lotRateMap = new Map(lotRates.map(r => [(r.lotId || '').trim(), r.rate]));
     const machineMap = new Map(machineList.map(m => [m.id, m.name]));
 
     const farmerGroups = new Map();
 
     batches.forEach(b => {
-      const farmerName = b.name;
-      const lot = lots.find(l => l.id === b.lotId);
+      const lid = (b.lotId || '').trim();
+      const farmerName = (b.name || 'Unknown Farmer').trim();
+      const lot = lots.find(l => (l.id || '').trim() === lid);
       if (!lot) return;
+
+      const lotIdTrimmed = (lot.id || '').trim();
 
       const deliveredStages = ['LOADED', 'IN TRANSIT', 'DELIVERED TO MILL', 'QUALITY CHECK', 'PAID', 'SETTLED'];
       if (!deliveredStages.includes(lot.stage)) return;
@@ -793,14 +796,14 @@ app.get('/api/farmer-settlements', async (req, res) => {
       }
       const group = farmerGroups.get(farmerName);
       
-      const rate = lotRateMap.get(lot.id) || 1200;
+      const rate = lotRateMap.get(lotIdTrimmed) || 1200;
       group.totalBags += (b.bags || 0);
       group.grossAmount += (b.bags || 0) * rate;
       
-      let lotEntry = group.lots.find((l: any) => l.lotId === lot.id);
+      let lotEntry = group.lots.find((l: any) => (l.lotId || '').trim() === lotIdTrimmed);
       if (!lotEntry) {
         lotEntry = {
-          lotId: lot.id,
+          lotId: lotIdTrimmed,
           date: lot.date,
           stage: lot.stage,
           paddyType: lot.type,
