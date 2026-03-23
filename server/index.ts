@@ -746,6 +746,13 @@ app.get('/api/farmer-settlements', async (req, res) => {
     const farmerGroups = new Map();
     batches.forEach(b => {
       const farmerName = b.name;
+      const lot = lots.find(l => l.id === b.lotId);
+      if (!lot) return;
+
+      // Only show details in settlements once the lot is delivered to mill or later
+      const deliveredStages = ['DELIVERED TO MILL', 'QUALITY CHECK', 'PAID', 'SETTLED'];
+      if (!deliveredStages.includes(lot.stage)) return;
+
       if (!farmerGroups.has(farmerName)) {
         farmerGroups.set(farmerName, {
           farmerName,
@@ -759,36 +766,33 @@ app.get('/api/farmer-settlements', async (req, res) => {
         });
       }
       const group = farmerGroups.get(farmerName);
-      const lot = lots.find(l => l.id === b.lotId);
-      if (lot) {
-        group.totalBags += b.bags;
-        const rate = lotRateMap.get(lot.id) || 1200;
-        group.grossAmount += b.bags * rate;
-        group.batchGratuity += (b.labour_gratuity || 0);
-        
-        if (!group.lots.find((l: any) => l.lotId === lot.id)) {
-          group.lots.push({
-            lotId: lot.id,
-            date: lot.date,
-            stage: lot.stage,
-            paddyType: lot.type,
-            load_area: lot.load_area,
-            mill_name: lot.mill_name,
-            loaded_at: lot.loaded_at,
-            vehicle_type: lot.vehicle_type,
-            bags: 0,
-            rate: rate,
-            machine_cost: lot.machine_cost || 0,
-            gratuity: lot.gratuity || 0,
-            batch_gratuity: 0,
-            machine_id: lot.machine_id,
-            mobile: b.mobile
-          });
-        }
-        const lotDetail = group.lots.find((l: any) => l.lotId === lot.id);
-        lotDetail.bags += b.bags;
-        lotDetail.batch_gratuity += (b.labour_gratuity || 0);
+      group.totalBags += b.bags;
+      const rate = lotRateMap.get(lot.id) || 1200;
+      group.grossAmount += b.bags * rate;
+      group.batchGratuity += (b.labour_gratuity || 0);
+      
+      if (!group.lots.find((l: any) => l.lotId === lot.id)) {
+        group.lots.push({
+          lotId: lot.id,
+          date: lot.date,
+          stage: lot.stage,
+          paddyType: lot.type,
+          load_area: lot.load_area,
+          mill_name: lot.mill_name,
+          loaded_at: lot.loaded_at,
+          vehicle_type: lot.vehicle_type,
+          bags: 0,
+          rate: rate,
+          machine_cost: lot.machine_cost || 0,
+          gratuity: lot.gratuity || 0,
+          batch_gratuity: 0,
+          machine_id: lot.machine_id,
+          mobile: b.mobile
+        });
       }
+      const lotDetail = group.lots.find((l: any) => l.lotId === lot.id);
+      lotDetail.bags += b.bags;
+      lotDetail.batch_gratuity += (b.labour_gratuity || 0);
     });
 
     machineLogs.forEach(ml => {
