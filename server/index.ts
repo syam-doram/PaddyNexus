@@ -740,28 +740,43 @@ app.patch('/api/lots/:id', async (req, res) => {
 
 app.get('/api/farmer-settlements', async (req, res) => {
   const { year, traderId } = req.query;
-  const yearFilter = year ? new RegExp(`^${year}-`) : /.*/;
+  const targetYear = (year as string) || new Date().getFullYear().toString();
 
   try {
-    const [lots, batches, lotRates, machineLogs, machineList, advancesList] = await Promise.all([
-      Lot.find({ date: yearFilter }),
-      Batch.find({ date: yearFilter }),
-      LotRate.find(),
-      MachineLog.find({ date: yearFilter }),
-      Machine.find(),
-      FarmerAdvance.find({ date: yearFilter })
+    // 1. Fetch Batches for the year
+    const batchMatch: any = { date: { $regex: `^${targetYear}` } };
+    if (traderId) batchMatch.trader_id = traderId;
+    const batches = await Batch.find(batchMatch).lean();
+    
+    // 2. Fetch referenced Lots (regardless of date)
+    const lotIds = [...new Set(batches.map(b => b.lotId))];
+    const lots = await Lot.find({ id: { $in: lotIds } }).lean();
+
+    // 3. Fetch Related Data (isolated by trader and year)
+    const machineLogMatch: any = { date: { $regex: `^${targetYear}` } };
+    const advanceMatch: any = { date: { $regex: `^${targetYear}` } };
+    if (traderId) {
+      machineLogMatch.trader_id = traderId;
+      advanceMatch.trader_id = traderId;
+    }
+
+    const [lotRates, machineLogs, machineList, advancesList] = await Promise.all([
+      LotRate.find({ lotId: { $in: lotIds } }).lean(),
+      MachineLog.find(machineLogMatch).lean(),
+      Machine.find(traderId ? { trader_id: traderId } : {}).lean(),
+      FarmerAdvance.find(advanceMatch).lean()
     ]);
 
     const lotRateMap = new Map(lotRates.map(r => [r.lotId, r.rate]));
     const machineMap = new Map(machineList.map(m => [m.id, m.name]));
 
     const farmerGroups = new Map();
+
     batches.forEach(b => {
       const farmerName = b.name;
       const lot = lots.find(l => l.id === b.lotId);
       if (!lot) return;
 
-      // Only show details in settlements once the lot is loaded, delivered to mill or later
       const deliveredStages = ['LOADED', 'IN TRANSIT', 'DELIVERED TO MILL', 'QUALITY CHECK', 'PAID', 'SETTLED'];
       if (!deliveredStages.includes(lot.stage)) return;
 
@@ -770,7 +785,6 @@ app.get('/api/farmer-settlements', async (req, res) => {
           farmerName,
           totalBags: 0,
           grossAmount: 0,
-          batchGratuity: 0,
           mobile: b.mobile,
           lots: [],
           advances: [],
@@ -778,13 +792,14 @@ app.get('/api/farmer-settlements', async (req, res) => {
         });
       }
       const group = farmerGroups.get(farmerName);
-      group.totalBags += b.bags;
-      const rate = lotRateMap.get(lot.id) || 1200;
-      group.grossAmount += b.bags * rate;
-      group.batchGratuity += (b.labour_gratuity || 0);
       
-      if (!group.lots.find((l: any) => l.lotId === lot.id)) {
-        group.lots.push({
+      const rate = lotRateMap.get(lot.id) || 1200;
+      group.totalBags += (b.bags || 0);
+      group.grossAmount += (b.bags || 0) * rate;
+      
+      let lotEntry = group.lots.find((l: any) => l.lotId === lot.id);
+      if (!lotEntry) {
+        lotEntry = {
           lotId: lot.id,
           date: lot.date,
           stage: lot.stage,
@@ -796,22 +811,25 @@ app.get('/api/farmer-settlements', async (req, res) => {
           bags: 0,
           rate: rate,
           machine_cost: lot.machine_cost || 0,
+          machine_hours: lot.machine_hours || 0,
+          machine_rate: lot.machine_rate || 0,
           gratuity: lot.gratuity || 0,
           batch_gratuity: 0,
           machine_id: lot.machine_id,
-          mobile: b.mobile
-        });
+          mobile: b.mobile,
+          amountTypes: lot.amount_type ? [lot.amount_type] : [],
+          weightCapacities: [lot.weight_capacity || '75']
+        };
+        group.lots.push(lotEntry);
       }
-      const lotDetail = group.lots.find((l: any) => l.lotId === lot.id);
-      lotDetail.bags += b.bags;
-      lotDetail.batch_gratuity += (b.labour_gratuity || 0);
+      lotEntry.bags += (b.bags || 0);
+      lotEntry.batch_gratuity += (b.labour_gratuity || 0);
     });
 
     machineLogs.forEach(ml => {
       const group = farmerGroups.get(ml.farmer_name);
       if (group) {
         group.machineLogs.push({
-          farmerName: ml.farmer_name,
           amount: ml.total_amount,
           hours: ml.hours,
           date: ml.date,
@@ -822,42 +840,33 @@ app.get('/api/farmer-settlements', async (req, res) => {
 
     advancesList.forEach(adv => {
       const group = farmerGroups.get(adv.farmer_name);
-      if (group) {
-        group.advances.push(adv);
-      }
+      if (group) group.advances.push(adv);
     });
 
-    const settlements = Array.from(farmerGroups.values()).map(group => {
-      const totalMachineCostFromLogs = group.machineLogs.reduce((acc: number, log: any) => acc + (log.amount || 0), 0);
-      const totalMachineCostFromLots = group.lots.reduce((acc: number, lot: any) => acc + (lot.machine_cost || 0), 0);
-      const totalMachineCost = totalMachineCostFromLogs + totalMachineCostFromLots;
-
-      const totalMachineHours = group.machineLogs.reduce((acc: number, log: any) => acc + (log.hours || 0), 0);
+    const results = Array.from(farmerGroups.values()).map(group => {
+      const totalMachineLogCost = group.machineLogs.reduce((acc: number, log: any) => acc + (log.amount || 0), 0);
+      const totalLotMachineCost = group.lots.reduce((acc: number, lot: any) => acc + (lot.machine_cost || 0), 0);
+      const totalMachineCost = totalMachineLogCost + totalLotMachineCost;
+      const totalMachineHours = group.machineLogs.reduce((acc: number, log: any) => acc + (log.hours || 0), 0) + 
+                                group.lots.reduce((acc: number, lot: any) => acc + (lot.machine_hours || 0), 0);
       const totalAdvances = group.advances.reduce((acc: number, a: any) => acc + (a.amount || 0), 0);
       const totalGratuity = group.lots.reduce((acc: number, lot: any) => acc + (lot.gratuity || 0) + (lot.batch_gratuity || 0), 0);
-
       const netBalance = group.grossAmount - totalMachineCost - totalAdvances - totalGratuity;
 
       return {
-        farmerName: group.farmerName,
-        mobile: group.mobile,
-        totalBags: group.totalBags,
-        grossAmount: group.grossAmount,
+        ...group,
         totalMachineCost,
         totalMachineHours,
         totalAdvances,
         totalGratuity,
-        netBalance,
-        lots: group.lots,
-        advances: group.advances,
-        machineLogs: group.machineLogs
+        netBalance
       };
     });
 
-    res.json(settlements);
-  } catch (error) {
+    res.json(results);
+  } catch (error: any) {
     console.error("Database error (farmer-settlements):", error);
-    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message });
+    res.status(500).json({ error: 'Internal Server Error', message: error.message });
   }
 });
 
@@ -1628,10 +1637,12 @@ app.delete('/api/lots/:id', async (req, res) => {
 
 // GET settled farmer names for a year
 app.get('/api/farmer-settlements/status', async (req, res) => {
-  const { year } = req.query;
+  const { year, traderId } = req.query;
   if (!year) return res.status(400).json({ error: 'year is required' });
   try {
-    const statuses = await SettlementStatus.find({ year, is_settled: 1, type: 'FARMER' });
+    const filter: any = { year, is_settled: 1, type: 'FARMER' };
+    if (traderId) filter.trader_id = traderId;
+    const statuses = await SettlementStatus.find(filter);
     res.json({
       settledFarmers: statuses.map(s => s.entity_name),
       settledDates: Object.fromEntries(statuses.map(s => [s.entity_name, s.settled_at]))
