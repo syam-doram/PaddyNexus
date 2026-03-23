@@ -103,33 +103,20 @@ export default function MachineSettlement() {
 
           {/* Compressed Mobile Filters Row */}
           <div className="flex flex-col sm:flex-row gap-3 items-center">
-             <div className="flex gap-2">
-                <div className="relative group">
-                   <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-primary" />
-                   <select 
-                      value={activeYear}
-                      onChange={(e) => setActiveYear(parseInt(e.target.value))}
-                      className="h-12 pl-12 pr-10 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest outline-none appearance-none focus:border-primary transition-all shadow-sm"
-                   >
-                      {years.map(y => (
-                        <option key={y} value={y}>{y} SESSION</option>
-                      ))}
-                   </select>
-                   <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 rotate-90 pointer-events-none" />
-                </div>
-
-                <div className="relative group">
-                   <Filter className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-                   <select 
-                      value={activeTab}
-                      onChange={(e) => setActiveTab(e.target.value as any)}
-                      className="h-12 pl-12 pr-10 bg-white dark:bg-white/5 border border-slate-200 dark:border-white/10 rounded-2xl text-[10px] font-black uppercase tracking-widest outline-none appearance-none focus:border-primary transition-all shadow-sm"
-                   >
-                      <option value="outstanding">Outstanding</option>
-                      <option value="settled">Settled</option>
-                   </select>
-                   <ChevronRight className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 rotate-90 pointer-events-none" />
-                </div>
+             <div className="w-full sm:flex-1 flex gap-2 lg:gap-4 overflow-x-auto no-scrollbar py-1">
+                {years.map(y => (
+                  <button
+                    key={y}
+                    onClick={() => setActiveYear(y)}
+                    className={`px-4 lg:px-6 py-2.5 lg:py-3.5 rounded-xl lg:rounded-2xl text-[9px] lg:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                      activeYear === y 
+                        ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-lg' 
+                        : 'bg-slate-100 dark:bg-white/5 text-slate-400'
+                    }`}
+                  >
+                    {y}
+                  </button>
+                ))}
              </div>
              
              <div className="flex items-center gap-2 lg:gap-4 w-full sm:w-auto">
@@ -155,6 +142,21 @@ export default function MachineSettlement() {
           {/* Compressed Stats Cardiovascular Strip */}
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mt-4 p-4 lg:p-6 bg-slate-100 dark:bg-white/5 rounded-[24px] lg:rounded-[32px] border border-slate-200 dark:border-white/5 shadow-sm">
               <div className="flex flex-col sm:flex-row gap-4 lg:gap-12 sm:items-center w-full lg:w-auto">
+                  <div className="flex bg-white dark:bg-slate-800 p-0.5 rounded-xl shadow-sm w-full sm:w-auto overflow-x-auto no-scrollbar shrink-0">
+                      {(['outstanding', 'settled'] as const).map(tab => (
+                        <button
+                          key={tab}
+                          onClick={() => setActiveTab(tab)}
+                          className={`flex-1 sm:flex-none px-6 lg:px-10 py-2 lg:py-2.5 rounded-lg text-[8px] lg:text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                            activeTab === tab 
+                              ? 'bg-primary text-background-dark shadow-md' 
+                              : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'
+                          }`}
+                        >
+                          {tab}
+                        </button>
+                      ))}
+                  </div>
                   
                   <div className="flex flex-1 justify-around sm:justify-start gap-6 lg:gap-12 px-2">
                       <div className="shrink-0">
@@ -287,7 +289,7 @@ export default function MachineSettlement() {
                                         </div>
                                     </div>
 
-                                    {!!s.is_settled && s.settled_at && (
+                                    {s.is_settled && s.settled_at && (
                                         <div className="mb-6 px-6 py-3 bg-slate-900/5 dark:bg-white/5 rounded-2xl flex items-center justify-between border border-dashed border-slate-200 dark:border-white/10">
                                             <div className="flex items-center gap-2">
                                                 <Calendar className="w-3 h-3 text-slate-400" />
@@ -355,7 +357,7 @@ export default function MachineSettlement() {
                                             <h4 className="text-sm lg:text-base font-black text-slate-900 dark:text-white uppercase tracking-tight truncate">{s.name}</h4>
                                             <div className="flex items-center gap-2">
                                                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{s.model}</p>
-                                                {!!s.is_settled && s.settled_at && (
+                                                {s.is_settled && s.settled_at && (
                                                     <span className="text-[7px] font-black text-primary uppercase tracking-[0.2em] bg-primary/5 px-2 py-0.5 rounded-full border border-primary/10">
                                                         SETTLED: {new Date(s.settled_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
                                                     </span>

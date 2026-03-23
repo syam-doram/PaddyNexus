@@ -20,9 +20,6 @@ export default function MachineSettleDetail() {
   const [isSettling, setIsSettling] = useState(false);
   const [remittanceAmount, setRemittanceAmount] = useState('');
   const [remittanceDesc, setRemittanceDesc] = useState('');
-  const [remittanceDate, setRemittanceDate] = useState(new Date().toISOString().split('T')[0]);
-  const [paymentMethod, setPaymentMethod] = useState('Cash');
-
   const [showConfirm, setShowConfirm] = useState(false);
   const [confirmConfig, setConfirmConfig] = useState<{
     title: string;
@@ -30,30 +27,6 @@ export default function MachineSettleDetail() {
     action: () => void;
     type: 'critical' | 'action';
   }>({ title: '', description: '', action: () => {}, type: 'action' });
-
-  const groupedLogs = useMemo(() => {
-    if (!reportData?.logs) return [];
-    const groups: Record<string, any> = {};
-    reportData.logs.forEach((l: any) => {
-      const date = new Date(l.date);
-      const mKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      if (!groups[mKey]) {
-        groups[mKey] = {
-          monthKey: mKey,
-          displayMonth: date.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' }),
-          hours: 0,
-          farmers: 0,
-          amount: 0,
-          areas: new Set<string>()
-        };
-      }
-      groups[mKey].hours += (l.hours || 0);
-      groups[mKey].farmers += 1;
-      groups[mKey].amount += (l.total_amount || 0);
-      if (l.location) groups[mKey].areas.add(l.location);
-    });
-    return Object.values(groups).sort((a: any, b: any) => b.monthKey.localeCompare(a.monthKey));
-  }, [reportData]);
 
   const fetchReport = async () => {
     setLoading(true);
@@ -263,23 +236,23 @@ export default function MachineSettleDetail() {
   };
 
   const handleRemittance = async () => {
-    if (!remittanceAmount || parseInt(remittanceAmount) <= 0) return;
+    if (!remittanceAmount) return;
     try {
-        const fullDesc = `[${paymentMethod.toUpperCase()}] ${remittanceDesc}`;
+        const d = new Date();
+        const localDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
         await fetch(`${API_BASE_URL}/machine-advances`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
                 machine_id: machineId, 
                 amount: parseInt(remittanceAmount), 
-                date: remittanceDate, 
-                description: fullDesc,
+                date: localDate, 
+                description: remittanceDesc,
                 traderId: user?.trader_id || user?.id 
             })
         });
         setRemittanceAmount('');
         setRemittanceDesc('');
-        setRemittanceDate(new Date().toISOString().split('T')[0]);
         fetchReport();
     } catch (e) {
         console.error(e);
@@ -354,91 +327,75 @@ export default function MachineSettleDetail() {
                 <div className="lg:col-span-2 space-y-16">
                     {/* Operational Ledger */}
                     <section>
-                        <div className="flex justify-between items-center mb-8">
-                            <h4 className="text-[11px] font-black text-slate-900 dark:text-white uppercase tracking-[0.3em] flex items-center gap-4">
-                                <TrendingUp className="w-5 h-5 text-emerald-500" /> Operational Deployment Ledger
-                                <div className="h-px bg-slate-100 dark:bg-white/10 flex-1" />
-                            </h4>
-                        </div>
+                        <h4 className="text-[11px] font-black text-slate-900 dark:text-white uppercase tracking-[0.3em] mb-8 flex items-center gap-4">
+                            <TrendingUp className="w-5 h-5 text-emerald-500" /> Operational Deployment Ledger
+                            <div className="h-px bg-slate-100 dark:bg-white/10 flex-1" />
+                        </h4>
                         
                         <div className="bg-white dark:bg-surface-dark rounded-[32px] border border-slate-100 dark:border-white/5 overflow-hidden shadow-sm">
-                            {/* Desktop Table: Grouped by Month */}
+                            {/* Desktop Table */}
                             <table className="w-full hidden md:table">
                                 <thead>
                                     <tr className="text-left bg-slate-50 dark:bg-white/5 border-b border-slate-100 dark:border-white/5">
-                                        <th className="p-6 text-[10px] font-black uppercase tracking-widest text-slate-400">Monthly Period</th>
-                                        <th className="p-6 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Farmer Count</th>
-                                        <th className="p-6 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Fleet Usage</th>
-                                        <th className="p-6 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Yield amount</th>
-                                        <th className="p-6 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Action</th>
+                                        <th className="p-6 text-[10px] font-black uppercase tracking-widest text-slate-400">Date</th>
+                                        <th className="p-6 text-[10px] font-black uppercase tracking-widest text-slate-400">Farmer</th>
+                                        <th className="p-6 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Usage</th>
+                                        <th className="p-6 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Subtotal</th>
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-slate-50 dark:divide-white/5">
-                                    {(groupedLogs as any[]).map((g) => {
-                                        // Find min/max dates for this month
-                                        const monthLogs = reportData.logs.filter((l: any) => {
-                                            const d = new Date(l.date);
-                                            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` === g.monthKey;
-                                        });
-                                        const dates = monthLogs.map((l: any) => new Date(l.date).getTime());
-                                        const minDate = new Date(Math.min(...dates));
-                                        const maxDate = new Date(Math.max(...dates));
-
-                                        return (
-                                            <tr key={g.monthKey} className="group hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors">
-                                                <td className="p-6">
-                                                    <p className="text-[12px] font-black text-slate-900 dark:text-white uppercase tracking-tight">
-                                                        {g.displayMonth}
-                                                    </p>
-                                                </td>
-                                                <td className="p-6 text-center">
-                                                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
-                                                        {g.farmers} ENTRIES
-                                                    </span>
-                                                </td>
-                                                <td className="p-6 text-center">
-                                                    <div className="inline-flex flex-col items-center">
-                                                        <p className="text-base font-black text-slate-900 dark:text-white leading-none">{g.hours}</p>
-                                                        <p className="text-[8px] font-black text-primary uppercase tracking-[0.2em] mt-1">Total HR</p>
+                                    {reportData.logs.map((l: any) => (
+                                        <tr key={l.id} className="group hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors border-l-4 border-l-transparent hover:border-l-primary">
+                                            <td className="p-4 px-6 md:p-5 md:px-8">
+                                                <p className="text-[10px] md:text-[11px] font-black text-slate-900 dark:text-white uppercase">
+                                                    {new Date(l.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                                                </p>
+                                            </td>
+                                            <td className="p-4 px-6 md:p-5 md:px-8">
+                                                <div className="flex flex-col gap-0.5">
+                                                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-tight line-clamp-1">{l.farmer_name}</p>
+                                                    <div className="flex items-center gap-2">
+                                                        <p className="text-[8px] font-black text-slate-300 uppercase">₹{l.rate}/Hr</p>
+                                                        {l.location && (
+                                                            <span className="text-[7px] font-black text-primary uppercase bg-primary/5 px-1.5 py-0.5 rounded-full border border-primary/10">
+                                                                {l.location}
+                                                            </span>
+                                                        )}
                                                     </div>
-                                                </td>
-                                                <td className="p-6 text-right font-black text-emerald-600">
-                                                    ₹{g.amount.toLocaleString()}
-                                                </td>
-                                                <td className="p-6 text-center">
-                                                    <button 
-                                                        onClick={() => navigate(`/machine-settlement/${machineId}/harvests?year=${activeYear}&month=${g.monthKey}`)}
-                                                        className="p-2.5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl hover:scale-110 transition-all shadow-md group"
-                                                    >
-                                                        <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-                                                    </button>
-                                                </td>
-                                            </tr>
-                                        );
-                                    })}
+                                                </div>
+                                            </td>
+                                            <td className="p-4 px-6 md:p-5 md:px-8 text-center">
+                                                <span className="px-3 py-1 bg-slate-100 dark:bg-white/10 rounded-full text-[10px] font-black text-slate-500 uppercase">
+                                                    {l.hours} HR
+                                                </span>
+                                            </td>
+                                            <td className="p-4 px-6 md:p-5 md:px-8 text-right font-black text-emerald-600">
+                                                ₹{l.total_amount.toLocaleString()}
+                                            </td>
+                                        </tr>
+                                    ))}
                                 </tbody>
                             </table>
 
-                            {/* Mobile List View: Grouped by Month */}
+                            {/* Mobile List View */}
                             <div className="md:hidden divide-y divide-slate-50 dark:divide-white/5">
-                                {(groupedLogs as any[]).map((g) => (
-                                    <div 
-                                        key={g.monthKey} 
-                                        className="p-6 active:bg-slate-50 dark:active:bg-white/5 transition-colors flex justify-between items-center group"
-                                        onClick={() => navigate(`/machine-settlement/${machineId}/harvests?year=${activeYear}&month=${g.monthKey}`)}
-                                    >
-                                        <div className="flex-1">
-                                            <p className="text-[10px] font-black text-primary uppercase tracking-[0.3em] mb-2">{g.displayMonth}</p>
-                                            <h5 className="text-base font-black text-slate-900 dark:text-white uppercase leading-none mb-1">
-                                                {g.farmers} Farmers
-                                            </h5>
-                                            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mt-1">
-                                                Total Usage: {g.hours} HR
-                                            </p>
+                                {reportData.logs.map((l: any) => (
+                                    <div key={l.id} className="p-5 active:bg-slate-50 dark:active:bg-white/5 transition-colors">
+                                        <div className="flex justify-between items-start mb-2">
+                                            <div>
+                                                <p className="text-[8px] font-black text-slate-300 uppercase mb-0.5">{new Date(l.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'long' })}</p>
+                                                <p className="text-xs font-black text-slate-900 dark:text-white uppercase truncate">{l.farmer_name}</p>
+                                            </div>
+                                            <p className="text-sm font-black text-emerald-500">₹{l.total_amount.toLocaleString()}</p>
                                         </div>
-                                        <div className="flex flex-col items-end gap-3">
-                                            <p className="text-base font-black text-emerald-500 tracking-tighter">₹{g.amount.toLocaleString()}</p>
-                                            <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-primary transition-colors" />
+                                        <div className="flex items-center gap-2">
+                                            <span className="px-2 py-0.5 bg-slate-100 dark:bg-white/5 rounded-md text-[8px] font-black text-slate-500 uppercase">{l.hours} HR</span>
+                                            <span className="text-[8px] font-black text-slate-300 uppercase">@ ₹{l.rate}</span>
+                                            {l.location && (
+                                                <span className="text-[7px] font-black text-primary uppercase bg-primary/5 px-1.5 py-0.5 rounded-full border border-primary/10">
+                                                    {l.location}
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
                                 ))}
@@ -487,57 +444,41 @@ export default function MachineSettleDetail() {
                 {/* Actions Column */}
                 <div className="space-y-12">
                      {/* Add Remittance Card */}
-                    {/* Compact Remittance Entry */}
                     {!reportData.machine.is_settled && (
-                        <section className="bg-white dark:bg-slate-900 p-6 lg:p-8 rounded-[32px] border border-slate-100 dark:border-white/5 shadow-xl">
-                            <div className="flex items-center gap-3 mb-6">
-                               <Banknote className="w-5 h-5 text-emerald-500" />
-                               <h4 className="text-sm font-black uppercase tracking-widest">New <span className="text-emerald-500 italic">Payout</span></h4>
-                            </div>
+                        <section className="bg-white dark:bg-surface-dark p-10 rounded-[48px] border border-slate-100 dark:border-white/5 shadow-xl shadow-slate-200/50 dark:shadow-none">
+                            <h4 className="text-2xl font-black uppercase tracking-tighter mb-2">New <span className="text-primary italic">Remittance</span></h4>
+                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-10">Financial Payout Entry</p>
                             
-                            <div className="space-y-4">
-                                <div className="relative">
-                                    <IndianRupee className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-500" />
-                                    <input 
-                                        type="number" 
-                                        value={remittanceAmount}
-                                        onChange={(e) => setRemittanceAmount(e.target.value)}
-                                        placeholder="Amount (0.00)" 
-                                        className="w-full h-12 pl-10 pr-4 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-xl text-lg font-black outline-none focus:border-emerald-500 transition-all" 
+                            <div className="space-y-6">
+                                <div>
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block px-1">Remittance Amount (₹)</label>
+                                    <div className="relative">
+                                        <IndianRupee className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-emerald-500" />
+                                        <input 
+                                            type="number" 
+                                            value={remittanceAmount}
+                                            onChange={(e) => setRemittanceAmount(e.target.value)}
+                                            placeholder="0" 
+                                            className="w-full h-16 pl-14 pr-6 bg-slate-50 dark:bg-slate-900/50 border-2 border-slate-50 dark:border-white/5 rounded-[24px] text-2xl font-black text-slate-900 dark:text-white focus:border-emerald-500 outline-none transition-all" 
+                                        />
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block px-1">Description / Purpose</label>
+                                    <textarea 
+                                        value={remittanceDesc}
+                                        onChange={(e) => setRemittanceDesc(e.target.value)}
+                                        placeholder="Reason for payment..." 
+                                        className="w-full h-32 p-6 bg-slate-50 dark:bg-slate-900/50 border-2 border-slate-50 dark:border-white/5 rounded-[32px] text-sm font-bold text-slate-900 dark:text-white focus:border-primary outline-none transition-all resize-none" 
                                     />
                                 </div>
 
-                                <div className="grid grid-cols-2 gap-3">
-                                   <input 
-                                      type="date"
-                                      value={remittanceDate}
-                                      onChange={(e) => setRemittanceDate(e.target.value)}
-                                      className="h-10 px-3 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-xl text-[10px] font-bold outline-none"
-                                   />
-                                   <select 
-                                      value={paymentMethod}
-                                      onChange={(e) => setPaymentMethod(e.target.value)}
-                                      className="h-10 px-3 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-xl text-[10px] font-bold outline-none appearance-none"
-                                   >
-                                      <option value="Cash">Cash</option>
-                                      <option value="UPI">UPI</option>
-                                      <option value="Bank">Bank</option>
-                                   </select>
-                                </div>
-                                
-                                <input 
-                                   type="text"
-                                   value={remittanceDesc}
-                                   onChange={(e) => setRemittanceDesc(e.target.value)}
-                                   placeholder="Payment description..." 
-                                   className="w-full h-10 px-4 bg-slate-50 dark:bg-white/5 border border-slate-100 dark:border-white/5 rounded-xl text-xs font-bold outline-none focus:border-primary transition-all" 
-                                />
-
                                 <button 
                                     onClick={handleRemittance}
-                                    className="w-full h-12 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all"
+                                    className="w-full py-6 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-[28px] text-[11px] font-black uppercase tracking-[0.4em] shadow-2xl active:scale-95 transition-all"
                                 >
-                                    Log Disbursement
+                                    Log Remittance
                                 </button>
                             </div>
                         </section>
