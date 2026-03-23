@@ -1763,6 +1763,7 @@ app.get('/api/mill-settlements', async (req, res) => {
       });
 
       let totalGross = 0;
+      let totalDeductions = 0;
       let totalBags = 0;
       let settledCount = 0;
 
@@ -1779,18 +1780,28 @@ app.get('/api/mill-settlements', async (req, res) => {
           return s + wNum;
         }, 0);
 
+        // Determine weight consistent with frontend logic: prioritizes scales, then batch weights, then bag-count baseline
+        let effectiveWeight = weightSum;
+        if (lot.post_load_scale > 0 && lot.pre_load_scale > 0) {
+          effectiveWeight = lot.post_load_scale - lot.pre_load_scale;
+        } else if (effectiveWeight === 0 && bagSum > 0) {
+          effectiveWeight = bagSum * 73;
+        }
+
         const paddyRate = ratesByLot.get(lotIdKey) || 1200;
         const lotYear = lot.date.split('-')[0];
         const comm = commRates.find(c => c.year === parseInt(lotYear));
         const dealer_comm = comm?.bag_rate || 0;
         const labour_comm = comm?.labour_rate || 0;
 
-        let lotValue = (weightSum * (paddyRate / 73)) + (bagSum * dealer_comm) + (bagSum * labour_comm);
+        let lotValue = (effectiveWeight * (paddyRate / 73)) + (bagSum * dealer_comm) + (bagSum * labour_comm);
+        let lotDeductions = 0;
         if (lot.manual_deductions_applied === 1) {
-          lotValue -= ((lot.moisture_loss || 0) + (lot.bag_penalty || 0) + (lot.labor_cost || 0));
+          lotDeductions = ((lot.moisture_loss || 0) + (lot.bag_penalty || 0) + (lot.labor_cost || 0));
         }
 
         totalGross += lotValue;
+        totalDeductions += lotDeductions;
         totalBags += bagSum;
         if (lot.stage === 'SETTLED') settledCount++;
       });
@@ -1808,7 +1819,7 @@ app.get('/api/mill-settlements', async (req, res) => {
         totalBags,
         totalDeliveredAmount: totalGross,
         totalPaidAmount: totalPaid,
-        netBalance: totalGross - totalPaid,
+        netBalance: totalGross - totalPaid - totalDeductions,
         settledLots: settledCount,
         pendingLots: millLots.length - settledCount,
         is_settled: settle?.is_settled ? 1 : 0
@@ -1884,31 +1895,39 @@ app.get('/api/mill-settlements/:millId', async (req, res) => {
 
       const paddyRate = rateRow?.rate || 1200;
       
-      // Calculate amount consistent with frontend logic
-      const lotValue = totalWeightKgs * (paddyRate / 73);
+      // Determine weight consistent with frontend logic: prioritizes scales, then batch weights, then bag-count baseline
+      let effectiveWeight = totalWeightKgs;
+      if (lot.post_load_scale > 0 && lot.pre_load_scale > 0) {
+        effectiveWeight = lot.post_load_scale - lot.pre_load_scale;
+      } else if (effectiveWeight === 0 && totalBags > 0) {
+        effectiveWeight = totalBags * 73;
+      }
+
+      // Calculate amount consistent with frontend logic (GROSS amount)
+      const lotValue = effectiveWeight * (paddyRate / 73);
       const traderValue = totalBags * dealer_comm;
       const labourValue = totalBags * labour_comm;
       
-      let baseAmount = lotValue + traderValue + labourValue;
-      
-      // Apply deductions if applicable
-      if (lot.manual_deductions_applied === 1) {
-        const deductions = (lot.moisture_loss || 0) + (lot.bag_penalty || 0) + (lot.labor_cost || 0);
-        baseAmount -= deductions;
-      }
+      const grossAmount = lotValue + traderValue + labourValue;
 
       return {
         ...lot,
         totalBags,
-        totalWeightKgs,
+        totalWeightKgs: effectiveWeight,
         paddyRate,
         dealer_commission_rate: dealer_comm,
         labour_commission_rate: labour_comm,
-        totalAmount: baseAmount
+        totalAmount: grossAmount
       };
     });
 
     const totalDelivered = processedLots.reduce((sum, l) => sum + (l.totalAmount || 0), 0);
+    const totalDeductions = processedLots.reduce((sum, l) => {
+        if (l.manual_deductions_applied === 1) {
+            return sum + (l.moisture_loss || 0) + (l.bag_penalty || 0) + (l.labor_cost || 0);
+        }
+        return sum;
+    }, 0);
     const totalPaid = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
 
     res.json({
@@ -1918,7 +1937,7 @@ app.get('/api/mill-settlements/:millId', async (req, res) => {
       summary: {
         totalDelivered,
         totalPaid,
-        netBalance: totalDelivered - totalPaid,
+        netBalance: totalDelivered - totalPaid - totalDeductions,
         is_settled: settleStatus?.is_settled ? 1 : 0,
         settled_at: settleStatus?.settled_at,
         totalBags: processedLots.reduce((sum, l) => sum + (l.totalBags || 0), 0)
