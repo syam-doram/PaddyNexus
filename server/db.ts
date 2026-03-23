@@ -94,7 +94,7 @@ const LotSchema = new mongoose.Schema({
   post_load_scale: { type: Number, default: 0 }
 });
 
-LotSchema.index({ id: 1 }, { unique: true });
+
 LotSchema.index({ trader_id: 1 });
 LotSchema.index({ date: -1 });
 LotSchema.index({ stage: 1 });
@@ -138,7 +138,7 @@ const LabourGroupSchema = new mongoose.Schema({
   trader_id: { type: String }
 });
 
-LabourGroupSchema.index({ id: 1 }, { unique: true });
+
 LabourGroupSchema.index({ trader_id: 1 });
 
 const LabourMemberSchema = new mongoose.Schema({
@@ -228,7 +228,7 @@ const LotRateSchema = new mongoose.Schema({
   rate: { type: Number, required: true }
 });
 
-LotRateSchema.index({ lotId: 1 }, { unique: true });
+
 
 // MODELS
 export const Machine = mongoose.model('Machine', MachineSchema);
