@@ -1814,7 +1814,7 @@ app.get('/api/mill-settlements', async (req, res) => {
         const labour_comm = comm?.labour_rate || 0;
 
         let grossPaddy = calcBags * paddyRate;
-        let lotValue = grossPaddy + (bagSum * dealer_comm) + (bagSum * labour_comm);
+        let lotValue = grossPaddy + (calcBags * dealer_comm) + (calcBags * labour_comm);
         let lotDeductions = 0;
         if (lot.manual_deductions_applied === 1) {
           lotDeductions = ((lot.moisture_loss || 0) + (lot.bag_penalty || 0) + (lot.labor_cost || 0));
@@ -1822,7 +1822,7 @@ app.get('/api/mill-settlements', async (req, res) => {
 
         totalGross += lotValue;
         totalDeductions += lotDeductions;
-        totalBags += bagSum;
+        totalBags += calcBags;
         if (lot.stage === 'SETTLED') settledCount++;
       });
 
@@ -1931,14 +1931,14 @@ app.get('/api/mill-settlements/:millId', async (req, res) => {
       const calcBags = effectiveWeight / bagWeight;
       
       const lotValue = calcBags * paddyRate;
-      const traderValue = totalBags * dealer_comm;
-      const labourValue = totalBags * labour_comm;
+      const traderValue = calcBags * dealer_comm;
+      const labourValue = calcBags * labour_comm;
       
       const grossAmount = lotValue + traderValue + labourValue;
 
       return {
         ...lot,
-        totalBags,
+        totalBags: calcBags,
         totalWeightKgs: effectiveWeight,
         paddyRate,
         dealer_commission_rate: dealer_comm,
