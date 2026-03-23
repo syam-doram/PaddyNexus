@@ -1745,11 +1745,11 @@ app.get('/api/mill-settlements', async (req, res) => {
     // 3. Build lookup maps
     const batchesByLot = new Map();
     batches.forEach(b => {
-      const lid = (b.lotId || '').trim();
-      if (!batchesByLot.has(lid)) batchesByLot.set(lid, []);
-      batchesByLot.get(lid).push(b);
+      const lidKey = (b.lotId || '').trim().toLowerCase();
+      if (!batchesByLot.has(lidKey)) batchesByLot.set(lidKey, []);
+      batchesByLot.get(lidKey).push(b);
     });
-    const ratesByLot = new Map(lotRates.map(r => [(r.lotId || '').trim(), r.rate]));
+    const ratesByLot = new Map(lotRates.map(r => [(r.lotId || '').trim().toLowerCase(), r.rate]));
 
     // 4. Process mills
     const results = mills.map(mill => {
@@ -1766,7 +1766,8 @@ app.get('/api/mill-settlements', async (req, res) => {
       let settledCount = 0;
 
       millLots.forEach(lot => {
-        const lb = batchesByLot.get((lot.id || '').trim()) || [];
+        const lotIdKey = (lot.id || '').trim().toLowerCase();
+        const lb = batchesByLot.get(lotIdKey) || [];
         const bagSum = lb.reduce((s, b) => s + (b.bags || 0), 0);
         const weightSum = lb.reduce((s, b) => {
           const wStr = String(b.weight || '0').replace(/,/g, '').split(' ')[0];
@@ -1777,7 +1778,7 @@ app.get('/api/mill-settlements', async (req, res) => {
           return s + wNum;
         }, 0);
 
-        const paddyRate = ratesByLot.get(lot.id) || 1200;
+        const paddyRate = ratesByLot.get(lotIdKey) || 1200;
         const lotYear = lot.date.split('-')[0];
         const comm = commRates.find(c => c.year === parseInt(lotYear));
         const dealer_comm = comm?.bag_rate || 0;
