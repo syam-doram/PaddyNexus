@@ -1351,6 +1351,30 @@ app.get('/api/silos', async (req, res) => {
     res.status(500).json({ error: err.message });
   }
 });
+
+app.get('/api/lots/:lotId/batches', async (req, res) => {
+  const { lotId } = req.params;
+  try {
+    const batches = await Batch.find({ lotId }).lean();
+    res.json(batches);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.get('/api/batches', async (req, res) => {
+  const { year, traderId } = req.query;
+  try {
+    const filter: any = {};
+    if (year) filter.date = { $regex: year };
+    if (traderId && traderId !== 'undefined') filter.trader_id = traderId;
+    const batches = await Batch.find(filter).sort({ date: -1 }).lean();
+    res.json(batches);
+  } catch (err: any) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.get('/api/mills', async (req, res) => {
   const { traderId } = req.query;
   try {
