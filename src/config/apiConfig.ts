@@ -13,7 +13,7 @@ const getApiBaseUrl = () => {
   // In development (Vite), return /api to use the proxy
   // In production (no proxy), this might still work if served together, 
   // but for mobile, we usually need an absolute URL.
-  return '/api';
+  return 'https://paddynexus.onrender.com/api';
 };
 
 export const API_BASE_URL = getApiBaseUrl();

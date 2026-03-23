@@ -514,40 +514,50 @@ app.get('/api/lots/types', async (req, res) => {
 
 app.get('/api/lots/:id', async (req, res) => {
   const { id } = req.params;
-  try {
-    const results = await Lot.aggregate([
-      { $match: { id: id } },
-      {
-        $lookup: {
-          from: 'labourgroups',
-          localField: 'labour_group_id',
-          foreignField: 'id',
-          as: 'labourGroup'
-        }
-      },
-      {
-        $lookup: {
-          from: 'batches',
-          localField: 'id',
-          foreignField: 'lotId',
-          as: 'batches'
-        }
-      },
-      {
-        $addFields: {
-          labour_group_name: { $arrayElemAt: ['$labourGroup.name', 0] },
-          bags: { $sum: '$batches.bags' },
-          avg_bag_weight: { $avg: { $map: { input: '$batches', as: 'b', in: { $convert: { input: { $arrayElemAt: [{ $split: [{ $ifNull: [{ $toString: "$$b.weight" }, "0"] }, " "] }, 0] }, to: "double", onError: 0, onNull: 0 } } } } }
-        }
-      },
-      { $project: { labourGroup: 0, batches: 0 } }
-    ]).allowDiskUse(true);
+  const { traderId } = req.query;
 
-    if (results.length === 0) return res.status(404).json({ error: 'Lot not found' });
-    res.json(results[0]);
-  } catch (error) {
+  try {
+    const filter: any = { id };
+    if (traderId) filter.trader_id = traderId;
+
+    const lot = await Lot.findOne(filter).lean();
+    if (!lot) return res.status(404).json({ error: 'Lot not found' });
+
+    // Fetch batches separately for calculation
+    const batches = await Batch.find({ lotId: id, trader_id: lot.trader_id || traderId }).lean();
+    
+    // Fetch labour group if present
+    let labourGroupName = '';
+    if (lot.labour_group_id) {
+       const lg = await LabourGroup.findOne({ id: lot.labour_group_id }).lean();
+       if (lg) labourGroupName = lg.name;
+    }
+
+    // Calculate bags sum and avg weight safely in JS
+    const bagsSum = batches.reduce((sum, b) => sum + (b.bags || 0), 0);
+    const weights = batches.map(b => {
+      const wStr = String(b.weight || '0').split(' ')[0];
+      const wNum = parseFloat(wStr);
+      return isNaN(wNum) ? 0 : wNum;
+    }).filter(w => w > 0);
+    
+    const avgWeight = weights.length > 0 ? (weights.reduce((s, w) => s + w, 0) / weights.length) : 0;
+
+    const result = {
+      ...lot,
+      labour_group_name: labourGroupName,
+      bags: bagsSum,
+      avg_bag_weight: avgWeight
+    };
+
+    res.json(result);
+  } catch (error: any) {
     console.error("Database error (get lot):", error);
-    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message, stack: (error as any).stack });
+    res.status(500).json({ 
+      error: 'Internal Server Error', 
+      message: error.message,
+      id: id
+    });
   }
 });
 
@@ -587,44 +597,45 @@ app.patch('/api/lots/:id/stage', async (req, res) => {
 
 app.get('/api/lots', async (req, res) => {
   const { year, traderId } = req.query;
-  const yearFilter = year ? new RegExp(`^${year}-`) : /.*/;
   try {
-    const match: any = { date: { $regex: year ? `^${year}-` : '.*' }, stage: { $ne: 'SETTLED' } };
-    if (traderId) match.trader_id = traderId;
+    const filter: any = { stage: { $ne: 'SETTLED' } };
+    if (year) filter.date = { $regex: `^${year}-` };
+    if (traderId) filter.trader_id = traderId;
 
-    const lots = await Lot.aggregate([
-      { $match: match },
-      {
-        $lookup: {
-          from: 'batches',
-          localField: 'id',
-          foreignField: 'lotId',
-          as: 'batches'
-        }
-      },
-      {
-        $lookup: {
-          from: 'lotrates',
-          localField: 'id',
-          foreignField: 'lotId',
-          as: 'lotRate'
-        }
-      },
-      {
-        $addFields: {
-          bags: { $sum: '$batches.bags' },
-          avg_bag_weight: { $avg: { $map: { input: '$batches', as: 'b', in: { $convert: { input: { $arrayElemAt: [{ $split: [{ $ifNull: [{ $toString: "$$b.weight" }, "0"] }, " "] }, 0] }, to: "double", onError: 0, onNull: 0 } } } } },
-          rate: { $ifNull: [{ $arrayElemAt: ['$lotRate.rate', 0] }, 1200] }
-        }
-      },
-      { $project: { batches: 0, lotRate: 0 } },
-      { $sort: { date: -1 } }
-    ]).allowDiskUse(true);
+    const lots = await Lot.find(filter).sort({ date: -1 }).lean();
+    const lotIds = lots.map(l => l.id);
 
-    res.json(lots);
-  } catch (error) {
+    // Fetch batches and rates for ALL lots in this list
+    const [batches, rates] = await Promise.all([
+      Batch.find({ lotId: { $in: lotIds } }).lean(),
+      LotRate.find({ lotId: { $in: lotIds } }).lean()
+    ]);
+
+    const results = lots.map(lot => {
+      const lotBatches = batches.filter(b => b.lotId === lot.id);
+      const lotRate = rates.find(r => r.lotId === lot.id);
+
+      const bagsSum = lotBatches.reduce((sum, b) => sum + (b.bags || 0), 0);
+      const weights = lotBatches.map(b => {
+        const wStr = String(b.weight || '0').split(' ')[0];
+        const wNum = parseFloat(wStr);
+        return isNaN(wNum) ? 0 : wNum;
+      }).filter(w => w > 0);
+      
+      const avgWeight = weights.length > 0 ? (weights.reduce((s, w) => s + w, 0) / weights.length) : 0;
+
+      return {
+        ...lot,
+        bags: bagsSum,
+        avg_bag_weight: avgWeight,
+        rate: lotRate ? lotRate.rate : 1200
+      };
+    });
+
+    res.json(results);
+  } catch (error: any) {
     console.error("Database error (get lots):", error);
-    res.status(500).json({ error: 'Internal Server Error', message: (error as any).message, stack: (error as any).stack });
+    res.status(500).json({ error: 'Internal Server Error', message: error.message });
   }
 });
 

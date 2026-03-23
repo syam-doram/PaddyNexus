@@ -72,6 +72,11 @@ export default function LotDetails() {
   const isDelivered = lot.stage && !['LOADING', 'LOADED', 'IN TRANSIT'].includes(lot.stage.toUpperCase());
 
   useEffect(() => {
+    if (!lot.id || lot.id === 'undefined') {
+      console.warn("LotDetails: lot.id is undefined, skipping fetch");
+      return;
+    }
+
     // Fetch full lot details to ensure state is fresh
     let lotUrl = `${API_BASE_URL}/lots/${encodeURIComponent(lot.id)}`;
     if (traderId) lotUrl += `?traderId=${traderId}`;

@@ -18,14 +18,14 @@ export default defineConfig(({mode}) => {
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       hmr: process.env.DISABLE_HMR !== 'true' ? {
-        host: env.VITE_HMR_HOST || 'localhost',
+        host: env.VITE_HMR_HOST || '0.0.0.0',
         clientPort: 3000,
       } : false,
       proxy: {
         '/api': {
-          target: 'http://localhost:3001',
+          target: 'https://paddynexus.onrender.com',
           changeOrigin: true,
-          secure: false,
+          secure: true,
         }
       }
     },
