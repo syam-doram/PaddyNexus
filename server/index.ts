@@ -776,12 +776,12 @@ app.get('/api/farmer-settlements', async (req, res) => {
     const farmerGroups = new Map();
 
     batches.forEach(b => {
-      const lid = (b.lotId || '').trim();
+      const lidLower = (b.lotId || '').trim().toLowerCase();
       const farmerName = (b.name || 'Unknown Farmer').trim();
-      const lot = lots.find(l => (l.id || '').trim() === lid);
+      const lot = lots.find(l => (l.id || '').trim().toLowerCase() === lidLower);
       if (!lot) return;
 
-      const lotIdTrimmed = (lot.id || '').trim();
+      const lotIdKey = (lot.id || '').trim().toLowerCase();
 
       const deliveredStages = ['LOADED', 'IN TRANSIT', 'DELIVERED TO MILL', 'QUALITY CHECK', 'PAID', 'SETTLED'];
       if (!deliveredStages.includes(lot.stage)) return;
@@ -799,11 +799,11 @@ app.get('/api/farmer-settlements', async (req, res) => {
       }
       const group = farmerGroups.get(farmerName);
       
-      const rate = lotRateMap.get(lotIdTrimmed) || 1200;
+      const rate = lotRateMap.get(lotIdKey) || 1200;
       group.totalBags += (b.bags || 0);
       group.grossAmount += (b.bags || 0) * rate;
       
-      let lotEntry = group.lots.find((l: any) => (l.lotId || '').trim() === lotIdTrimmed);
+      let lotEntry = group.lots.find((l: any) => (l.lotId || '').trim().toLowerCase() === lotIdKey);
       if (!lotEntry) {
         lotEntry = {
           lotId: lotIdTrimmed,
@@ -1867,9 +1867,9 @@ app.get('/api/mill-settlements/:millId', async (req, res) => {
 
     // 3. Process every lot in JS
     const processedLots = lots.map(lot => {
-      const lotIdTrimmed = (lot.id || '').trim();
-      const lotBatches = batches.filter(b => (b.lotId || '').trim() === lotIdTrimmed);
-      const rateRow = lotRates.find(r => (r.lotId || '').trim() === lotIdTrimmed);
+      const lotIdTrimmedLower = (lot.id || '').trim().toLowerCase();
+      const lotBatches = batches.filter(b => (b.lotId || '').trim().toLowerCase() === lotIdTrimmedLower);
+      const rateRow = lotRates.find(r => (r.lotId || '').trim().toLowerCase() === lotIdTrimmedLower);
       
       const totalBags = lotBatches.reduce((sum, b) => sum + (b.bags || 0), 0);
       const totalWeightKgs = lotBatches.reduce((sum, b) => {
