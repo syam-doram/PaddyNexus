@@ -745,12 +745,14 @@ app.get('/api/farmer-settlements', async (req, res) => {
 
   try {
     // 1. Fetch Batches for the year
-    const batchMatch: any = { date: { $regex: `^${targetYear}` } };
+    const batchMatch: any = { date: { $regex: targetYear } };
     if (traderId) batchMatch.trader_id = traderId;
     const batches = await Batch.find(batchMatch).lean();
     
-    // 2. Fetch referenced Lots (regardless of date)
-    const lotIds = [...new Set(batches.map(b => b.lotId))];
+    // 2. Fetch referenced Lots (regardless of date, use trimmed IDs)
+    const lotIds = [...new Set(batches.map(b => (b.lotId || '').trim()))];
+    if (lotIds.length === 0) return res.json([]); // Return early if no batches
+    
     const lots = await Lot.find({ id: { $in: lotIds } }).lean();
 
     // 3. Fetch Related Data (isolated by trader and year)
