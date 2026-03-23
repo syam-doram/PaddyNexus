@@ -706,7 +706,8 @@ app.patch('/api/lots/:id', async (req, res) => {
     'loaded_at', 'transit_at', 'delivered_at', 'quality_checked_at', 'paid_at',
     'load_area', 'mill_name', 'empty_bags', 'driver_mobile', 'photo_path',
     'vehicle_type', 'reg_number', 'gratuity', 'machine_cost', 'machine_id',
-    'labour_group_id', 'weigh_scale_kgs', 'settled_at', 'pre_load_scale', 'post_load_scale'
+    'machine_hours', 'machine_rate',
+    'labour_group_id', 'weigh_scale_kgs', 'amount_type', 'weight_capacity', 'settled_at', 'pre_load_scale', 'post_load_scale'
   ];
 
   const updates: any = {};
@@ -770,7 +771,7 @@ app.get('/api/farmer-settlements', async (req, res) => {
       FarmerAdvance.find(advanceMatch).lean()
     ]);
 
-    const lotRateMap = new Map(lotRates.map(r => [(r.lotId || '').trim(), r.rate]));
+    const lotRateMap = new Map(lotRates.map(r => [(r.lotId || '').trim().toLowerCase(), r.rate]));
     const machineMap = new Map(machineList.map(m => [m.id, m.name]));
 
     const farmerGroups = new Map();
@@ -911,7 +912,7 @@ app.get('/api/trader/earnings-summary', async (req, res) => {
     let totalRevenue = 0;
 
     const detailedLots = lots.map(lot => {
-      const lotYear = new Date(lot.date).getFullYear().toString();
+      const lotYear = new Date(lot.date).getFullYear();
       const rateObj = rates.find(r => r.year === lotYear);
       const commissionRate = rateObj?.bag_rate || 0;
       
@@ -1366,7 +1367,7 @@ app.get('/api/batches', async (req, res) => {
   const { year, traderId } = req.query;
   try {
     const filter: any = {};
-    if (year) filter.date = { $regex: year };
+    if (year) filter.date = { $regex: year as string };
     if (traderId && traderId !== 'undefined') filter.trader_id = traderId;
     const batches = await Batch.find(filter).sort({ date: -1 }).lean();
     res.json(batches);
@@ -1454,7 +1455,7 @@ app.delete('/api/machine-advances/:id', async (req, res) => {
 
 app.get('/api/machine-settlements', async (req, res) => {
   const { year, traderId } = req.query;
-  const targetYear = year || new Date().getFullYear().toString();
+  const targetYear = (year as string) || new Date().getFullYear().toString();
   try {
     const logs = await MachineLog.find({ 
       date: { $regex: `^${targetYear}` },
@@ -1477,7 +1478,7 @@ app.get('/api/machine-settlements', async (req, res) => {
     });
 
     const settlements = await SettlementStatus.find({ year: targetYear, machine_id: { $in: machines.map(m => m.id) } });
-    const commRate = await CommissionRate.findOne({ year: targetYear });
+    const commRate = await CommissionRate.findOne({ year: parseInt(targetYear) });
     const commissionRate = commRate?.machine_hour_rate || 0;
 
     const results = machines.map(m => {
@@ -1551,7 +1552,7 @@ app.post('/api/machine-advances', async (req, res) => {
 app.post('/api/machines/:id/settle', async (req, res) => {
   const { id } = req.params;
   const { traderId, year } = req.query;
-  const targetYear = year || new Date().getFullYear().toString();
+  const targetYear = (year as string) || new Date().getFullYear().toString();
   try {
     const cleanId = cleanMachineId(id);
     if (traderId) {
@@ -1560,7 +1561,7 @@ app.post('/api/machines/:id/settle', async (req, res) => {
     }
     await SettlementStatus.findOneAndUpdate(
       { machine_id: cleanId, year: targetYear },
-      { $set: { is_settled: 1, settled_at: new Date().toISOString() } },
+      { $set: { is_settled: true, settled_at: new Date().toISOString() } },
       { upsert: true }
     );
     res.json({ success: true, message: `Machine settled for ${targetYear}` });
@@ -1585,7 +1586,7 @@ app.post('/api/machines/:id/reopen', async (req, res) => {
     }
     await SettlementStatus.findOneAndUpdate(
       { machine_id: cleanId, year: targetYearNum.toString() },
-      { $set: { is_settled: 0, settled_at: new Date().toISOString() } },
+      { $set: { is_settled: false, settled_at: new Date().toISOString() } },
       { upsert: true }
     );
     res.json({ success: true, message: `Machine reopened for ${targetYearNum}` });
@@ -1598,7 +1599,7 @@ app.post('/api/machines/:id/reopen', async (req, res) => {
 app.get('/api/machine-report/:id', async (req, res) => {
   const { id } = req.params;
   const { year, traderId } = req.query;
-  const targetYear = year || new Date().getFullYear().toString();
+  const targetYear = (year as string) || new Date().getFullYear().toString();
   try {
     const cleanId = cleanMachineId(id);
     const machine = await Machine.findOne({ id: cleanId });
@@ -1608,7 +1609,7 @@ app.get('/api/machine-report/:id', async (req, res) => {
     const settle = await SettlementStatus.findOne({ machine_id: cleanId, year: targetYear });
     const logs = await MachineLog.find({ machine_id: cleanId, date: { $regex: `^${targetYear}` } }).sort({ date: -1 });
     const advances = await MachineAdvance.find({ machine_id: cleanId, date: { $regex: `^${targetYear}` } }).sort({ date: -1 });
-    const commRate = await CommissionRate.findOne({ year: targetYear });
+    const commRate = await CommissionRate.findOne({ year: parseInt(targetYear) });
     const commissionRate = commRate?.machine_hour_rate || 0;
 
     const totalEarnings = logs.reduce((sum, l) => sum + (l.total_amount || 0), 0);
@@ -1670,7 +1671,7 @@ app.get('/api/farmer-settlements/status', async (req, res) => {
   const { year, traderId } = req.query;
   if (!year) return res.status(400).json({ error: 'year is required' });
   try {
-    const filter: any = { year, is_settled: 1, type: 'FARMER' };
+    const filter: any = { year, is_settled: true, type: 'FARMER' };
     if (traderId) filter.trader_id = traderId;
     const statuses = await SettlementStatus.find(filter);
     res.json({
@@ -1688,7 +1689,7 @@ app.post('/api/farmer-settlements/settle', async (req, res) => {
   try {
     await SettlementStatus.findOneAndUpdate(
       { entity_name: farmer_name, year, type: 'FARMER' },
-      { $set: { is_settled: 1, settled_at: new Date().toISOString(), trader_id: traderId } },
+      { $set: { is_settled: true, settled_at: new Date().toISOString(), trader_id: traderId } },
       { upsert: true }
     );
     res.json({ success: true });
@@ -1703,7 +1704,7 @@ app.post('/api/farmer-settlements/reopen', async (req, res) => {
   try {
     await SettlementStatus.findOneAndUpdate(
       { entity_name: farmer_name, year, type: 'FARMER' },
-      { $set: { is_settled: 0, settled_at: new Date().toISOString(), trader_id: traderId } },
+      { $set: { is_settled: false, settled_at: new Date().toISOString(), trader_id: traderId } },
       { upsert: true }
     );
     res.json({ success: true });
@@ -1985,7 +1986,7 @@ app.post('/api/mill-payments', async (req, res) => {
     if (!mill) return res.status(404).json({ error: 'Mill not found' });
     if (traderId && mill.trader_id && mill.trader_id.toString() !== traderId.toString()) return res.status(403).json({ error: 'Access denied' });
 
-    const settle = await SettlementStatus.findOne({ mill_id, year: targetYear, type: 'MILL', is_settled: 1 });
+    const settle = await SettlementStatus.findOne({ mill_id, year: targetYear, type: 'MILL', is_settled: true });
     if (settle) return res.status(403).json({ error: `Mill is already settled for ${targetYear}` });
 
     const payment = new MillPayment({ mill_id, amount, date, description: description || '', lotId: lot_id || null });
@@ -2000,7 +2001,7 @@ app.get('/api/mill-settlements/status', async (req, res) => {
   const { year } = req.query;
   if (!year) return res.status(400).json({ error: 'year is required' });
   try {
-    const statuses = await SettlementStatus.find({ year, is_settled: 1, type: 'MILL' });
+    const statuses = await SettlementStatus.find({ year, is_settled: true, type: 'MILL' });
     res.json({
       settledMills: statuses.map(s => s.mill_id),
       settledDates: Object.fromEntries(statuses.map(s => [s.mill_id, s.settled_at]))
@@ -2033,7 +2034,7 @@ app.post('/api/mill-settlements/settle', async (req, res) => {
 
     await SettlementStatus.findOneAndUpdate(
       { mill_id, year, type: 'MILL' },
-      { $set: { is_settled: 1, settled_at: new Date().toISOString(), trader_id: traderId } },
+      { $set: { is_settled: true, settled_at: new Date().toISOString(), trader_id: traderId } },
       { upsert: true }
     );
     res.json({ success: true });
@@ -2051,7 +2052,7 @@ app.post('/api/mill-settlements/reopen', async (req, res) => {
 
     await SettlementStatus.findOneAndUpdate(
       { mill_id, year, type: 'MILL' },
-      { $set: { is_settled: 0, settled_at: new Date().toISOString(), trader_id: traderId } },
+      { $set: { is_settled: false, settled_at: new Date().toISOString(), trader_id: traderId } },
       { upsert: true }
     );
     res.json({ success: true });
