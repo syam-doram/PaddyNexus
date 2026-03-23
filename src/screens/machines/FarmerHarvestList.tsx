@@ -1,5 +1,5 @@
 import { motion, AnimatePresence } from 'motion/react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   Tractor, Search, ArrowLeft, Fuel, Gauge, 
   Settings, ShieldCheck, AlertCircle, TrendingUp, IndianRupee,
@@ -36,15 +36,18 @@ interface Machine {
 
 export default function FarmerHarvestList() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const traderId = user?.trader_id || user?.id;
+  
+  const state = location.state as { machineId?: string; year?: string } | null;
   
   const [logs, setLogs] = useState<HarvestLog[]>([]);
   const [machines, setMachines] = useState<Machine[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedMachine, setSelectedMachine] = useState('all');
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear().toString());
+  const [selectedMachine, setSelectedMachine] = useState(state?.machineId || 'all');
+  const [selectedYear, setSelectedYear] = useState(state?.year || new Date().getFullYear().toString());
 
   const years = [2024, 2025, 2026];
 

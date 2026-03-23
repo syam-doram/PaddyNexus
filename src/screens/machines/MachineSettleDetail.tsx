@@ -2,7 +2,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate, useParams, useLocation } from 'react-router-dom';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { ArrowLeft, Plus, IndianRupee, TrendingUp, History, Tractor, ChevronRight, AlertCircle, Calendar, Search, Download, Filter, User, Info, FileStack, X, Banknote, Lock, Trash2, Printer } from 'lucide-react';
+import { ArrowLeft, Plus, IndianRupee, TrendingUp, History, Tractor, ChevronRight, AlertCircle, Calendar, Search, Download, Filter, User, Info, FileStack, X, Banknote, Lock, Trash2, Printer, ListFilter } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { API_BASE_URL } from '../../config/apiConfig';
@@ -327,9 +327,16 @@ export default function MachineSettleDetail() {
                 <div className="lg:col-span-2 space-y-16">
                     {/* Operational Ledger */}
                     <section>
-                        <h4 className="text-[11px] font-black text-slate-900 dark:text-white uppercase tracking-[0.3em] mb-8 flex items-center gap-4">
-                            <TrendingUp className="w-5 h-5 text-emerald-500" /> Operational Deployment Ledger
-                            <div className="h-px bg-slate-100 dark:bg-white/10 flex-1" />
+                        <h4 className="text-[11px] font-black text-slate-900 dark:text-white uppercase tracking-[0.3em] mb-8 flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-4">
+                                <TrendingUp className="w-5 h-5 text-emerald-500" /> Operational Deployment Ledger
+                            </div>
+                            <button 
+                                onClick={() => navigate('/farmer-harvest-list', { state: { machineId: machineId, year: activeYear.toString() } })}
+                                className="px-4 py-2 bg-slate-100 dark:bg-white/5 rounded-xl text-[9px] font-black uppercase tracking-widest text-primary hover:bg-primary hover:text-background-dark transition-all flex items-center gap-2 border border-slate-200 dark:border-white/10"
+                            >
+                                <ListFilter className="w-3.5 h-3.5" /> Full Journal
+                            </button>
                         </h4>
                         
                         <div className="bg-white dark:bg-surface-dark rounded-[32px] border border-slate-100 dark:border-white/5 overflow-hidden shadow-sm">
