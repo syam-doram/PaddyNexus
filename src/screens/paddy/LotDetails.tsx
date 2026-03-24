@@ -28,8 +28,10 @@ import {
   TrendingUp,
   Scale,
   Activity,
-  Package
+  Package,
+  Trash2
 } from 'lucide-react';
+import ConfirmDialog from '../../components/ConfirmDialog';
 
 
 export default function LotDetails() {
@@ -55,6 +57,24 @@ export default function LotDetails() {
   const [isEditingPostScale, setIsEditingPostScale] = useState(false);
   const [isEditingPreScale, setIsEditingPreScale] = useState(false);
   const [isDetailsExpanded, setIsDetailsExpanded] = useState(true);
+  const [isDeletingBatch, setIsDeletingBatch] = useState(false);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    open: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    isDestructive: boolean;
+    actionLabel: string;
+  }>({
+    open: false,
+    title: '',
+    message: '',
+    onConfirm: () => { },
+    isDestructive: false,
+    actionLabel: 'Confirm'
+  });
+
+  const isSettled = lot.stage === 'SETTLED';
 
   const totalBags = batches.reduce((acc, curr) => acc + (parseInt(curr.bags) || 0), 0);
   const totalWeight = batches.reduce((acc, curr) => {
@@ -258,6 +278,39 @@ export default function LotDetails() {
          console.error("Failed to save pre-load scale", err);
        }
     }
+  };
+
+  const handleDeleteBatch = (e: React.MouseEvent, batchId: string) => {
+    e.stopPropagation();
+    if (isSettled) return;
+
+    setConfirmDialog({
+      open: true,
+      title: 'Delete Batch?',
+      message: 'This operation will permanently remove this harvest payload record from the lot. This action cannot be reversed.',
+      actionLabel: 'Delete Batch',
+      isDestructive: true,
+      onConfirm: async () => {
+        try {
+          setIsDeletingBatch(true);
+          let url = `${API_BASE_URL}/batches/${batchId}`;
+          if (traderId) url += `?traderId=${traderId}`;
+          const res = await fetch(url, { method: 'DELETE' });
+          if (res.ok) {
+            // Refresh data
+            setBatches(prev => prev.filter(b => (b._id || b.id) !== batchId));
+          } else {
+            const err = await res.json();
+            alert(err.error || "Failed to delete batch");
+          }
+        } catch (err) {
+          console.error("Error deleting batch:", err);
+        } finally {
+          setIsDeletingBatch(false);
+          setConfirmDialog(prev => ({ ...prev, open: false }));
+        }
+      }
+    });
   };
 
   return (
@@ -626,19 +679,29 @@ export default function LotDetails() {
                                     transition={{ delay: index * 0.05 }}
                                     className="group bg-white dark:bg-[#0F172A] rounded-2xl lg:rounded-[24px] p-4 lg:p-5 shadow-sm border border-slate-100 dark:border-white/5 relative hover:border-primary/40 transition-all duration-300"
                                 >
-                                     {!isDelivered && (
-                                        <button
-                                            onClick={() => {
+                                     {!isSettled && (
+                                        <div className="absolute top-4 right-4 flex items-center gap-2">
+                                          {!isDelivered && (
+                                            <button
+                                              onClick={() => {
                                                 const { icon, ...safeBatchState } = batch;
                                                 navigate(`/edit-batch`, {
-                                                    state: { batch: safeBatchState, lot }
+                                                  state: { batch: safeBatchState, lot }
                                                 });
-                                            }}
-                                            className="absolute top-4 right-4 p-2 bg-slate-50 dark:bg-white/5 rounded-lg text-slate-400 hover:text-primary transition-all border border-slate-100 dark:border-white/10"
-                                        >
-                                            <Pencil className="w-3.5 h-3.5 lg:w-4 h-4" />
-                                        </button>
-                                    )}
+                                              }}
+                                              className="p-2 bg-slate-50 dark:bg-white/5 rounded-lg text-slate-400 hover:text-primary transition-all border border-slate-100 dark:border-white/10"
+                                            >
+                                              <Pencil className="w-3.5 h-3.5 lg:w-4 h-4" />
+                                            </button>
+                                          )}
+                                          <button
+                                            onClick={(e) => handleDeleteBatch(e, batch._id || batch.id)}
+                                            className="p-2 bg-slate-50 dark:bg-white/5 rounded-lg text-slate-400 hover:text-rose-500 transition-all border border-slate-100 dark:border-white/10"
+                                          >
+                                            <Trash2 className="w-3.5 h-3.5 lg:w-4 h-4" />
+                                          </button>
+                                        </div>
+                                      )}
 
                                     <div className="flex gap-4 items-center mb-4 lg:mb-5">
                                         <div className={`w-10 h-10 lg:w-12 lg:h-12 rounded-xl lg:rounded-2xl flex items-center justify-center ${batch.iconBg || 'bg-slate-50'} ${batch.iconColor || 'text-slate-400'} border border-slate-100 dark:border-white/5 shadow-sm`}>
@@ -696,6 +759,16 @@ export default function LotDetails() {
             </div>
         </main>
       </div>
+      <ConfirmDialog
+        open={confirmDialog.open}
+        type={confirmDialog.isDestructive ? 'destructive' : 'info'}
+        title={confirmDialog.title}
+        message={confirmDialog.message}
+        onConfirm={confirmDialog.onConfirm}
+        onCancel={() => setConfirmDialog(prev => ({ ...prev, open: false }))}
+        confirmLabel={confirmDialog.actionLabel}
+        cancelLabel="Discard"
+      />
     </div>
   );
 }

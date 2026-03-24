@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { 
   Tractor, Search, ArrowLeft, Fuel, Gauge, 
   Settings, ShieldCheck, AlertCircle, TrendingUp, IndianRupee,
-  Clock, MapPin, Filter, Calendar, ListFilter, User, ChevronRight, FileStack, Download
+  Clock, MapPin, Filter, Calendar, ListFilter, User, ChevronRight, FileStack, Download, ChevronDown
 } from 'lucide-react';
 import { useState, useEffect, useMemo } from 'react';
 import { API_BASE_URL } from '../../config/apiConfig';
@@ -40,7 +40,7 @@ export default function FarmerHarvestList() {
   const { user } = useAuth();
   const traderId = user?.trader_id || user?.id;
   
-  const state = location.state as { machineId?: string; year?: string } | null;
+  const state = location.state as { machineId?: string; year?: string; month?: string } | null;
   
   const [logs, setLogs] = useState<HarvestLog[]>([]);
   const [machines, setMachines] = useState<Machine[]>([]);
@@ -48,8 +48,22 @@ export default function FarmerHarvestList() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedMachine, setSelectedMachine] = useState(state?.machineId || 'all');
   const [selectedYear, setSelectedYear] = useState(state?.year || new Date().getFullYear().toString());
+  const [selectedArea, setSelectedArea] = useState('all');
+  const [selectedMonth, setSelectedMonth] = useState(state?.month || 'all');
 
   const years = [2024, 2025, 2026];
+  const months = [
+    { id: 'all', name: 'ALL MONTHS' },
+    { id: '01', name: 'JANUARY' }, { id: '02', name: 'FEBRUARY' }, { id: '03', name: 'MARCH' },
+    { id: '04', name: 'APRIL' }, { id: '05', name: 'MAY' }, { id: '06', name: 'JUNE' },
+    { id: '07', name: 'JULY' }, { id: '08', name: 'AUGUST' }, { id: '09', name: 'SEPTEMBER' },
+    { id: '10', name: 'OCTOBER' }, { id: '11', name: 'NOVEMBER' }, { id: '12', name: 'DECEMBER' }
+  ];
+  
+  const areas = useMemo(() => {
+    const uniqueAreas = Array.from(new Set(logs.map(l => l.location).filter(Boolean)));
+    return ['all', ...uniqueAreas.sort()];
+  }, [logs]);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -85,10 +99,12 @@ export default function FarmerHarvestList() {
       
       const matchesMachine = selectedMachine === 'all' || log.machine_id === selectedMachine;
       const matchesYear = log.date.startsWith(selectedYear);
+      const matchesArea = selectedArea === 'all' || log.location === selectedArea;
+      const matchesMonth = selectedMonth === 'all' || log.date.split('-')[1] === selectedMonth;
       
-      return matchesSearch && matchesMachine && matchesYear;
+      return matchesSearch && matchesMachine && matchesYear && matchesArea && matchesMonth;
     });
-  }, [logs, searchQuery, selectedMachine, selectedYear]);
+  }, [logs, searchQuery, selectedMachine, selectedYear, selectedArea, selectedMonth]);
 
   const stats = useMemo(() => {
     return {
@@ -157,18 +173,29 @@ export default function FarmerHarvestList() {
             </div>
           </div>
           
-          <div className="hidden lg:flex items-center gap-6">
-            <div className="text-right">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 opacity-60">Session Hours</p>
-              <div className="flex items-baseline gap-1.5 justify-end">
-                <span className="text-xl font-black text-slate-900 dark:text-white">{stats.totalHours.toFixed(1)}</span>
-                <span className="text-[9px] font-bold text-slate-300">HRS</span>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={exportToPDF}
+              className="p-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl flex items-center justify-center gap-3 active:scale-95 transition-all shadow-xl shadow-slate-900/10"
+              title="Export Report"
+            >
+              <Download className="w-5 h-5" />
+              <span className="hidden md:inline text-[10px] font-black uppercase tracking-widest">Reports</span>
+            </button>
+            
+            <div className="hidden lg:flex items-center gap-6 ml-4">
+              <div className="text-right">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1 opacity-60">Session Hours</p>
+                <div className="flex items-baseline gap-1.5 justify-end">
+                  <span className="text-xl font-black text-slate-900 dark:text-white">{stats.totalHours.toFixed(1)}</span>
+                  <span className="text-[9px] font-bold text-slate-300">HRS</span>
+                </div>
               </div>
-            </div>
-            <div className="w-[1px] h-10 bg-slate-200 dark:bg-white/5" />
-            <div className="text-right">
-              <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest mb-1 opacity-60">Total Gross</p>
-              <p className="text-xl font-black text-emerald-500 tracking-tight">₹{(stats.totalRevenue / 1000).toFixed(1)}K</p>
+              <div className="w-[1px] h-10 bg-slate-200 dark:bg-white/5" />
+              <div className="text-right">
+                <p className="text-[9px] font-black text-emerald-500 uppercase tracking-widest mb-1 opacity-60">Total Gross</p>
+                <p className="text-xl font-black text-emerald-500 tracking-tight">₹{(stats.totalRevenue / 1000).toFixed(1)}K</p>
+              </div>
             </div>
           </div>
         </div>
@@ -197,13 +224,49 @@ export default function FarmerHarvestList() {
             ))}
           </div>
 
-          <button 
-            onClick={exportToPDF}
-            className="h-14 px-6 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl flex items-center justify-center gap-3 active:scale-95 transition-all shadow-xl shadow-slate-900/10"
-          >
-            <Download className="w-4 h-4" />
-            <span className="text-[10px] font-black uppercase tracking-widest">Reports</span>
-          </button>
+          <div className="flex-none w-full lg:w-48 relative">
+            <Tractor className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <select
+              value={selectedMachine}
+              onChange={(e) => setSelectedMachine(e.target.value)}
+              className="w-full h-14 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-2xl pl-12 pr-4 text-[10px] font-black uppercase tracking-widest appearance-none focus:ring-2 focus:ring-primary/20 outline-none"
+            >
+              <option value="all">ALL MACHINES</option>
+              {machines.map(m => (
+                <option key={m.id} value={m.id}>{m.name.toUpperCase()}</option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+          </div>
+
+          <div className="flex-none w-full lg:w-48 relative">
+            <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <select
+              value={selectedArea}
+              onChange={(e) => setSelectedArea(e.target.value)}
+              className="w-full h-14 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-2xl pl-12 pr-4 text-[10px] font-black uppercase tracking-widest appearance-none focus:ring-2 focus:ring-primary/20 outline-none"
+            >
+              <option value="all">ALL AREAS</option>
+              {areas.filter(a => a !== 'all').map(area => (
+                <option key={area} value={area}>{area.toUpperCase()}</option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+          </div>
+
+          <div className="flex-none w-full lg:w-48 relative">
+            <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(e.target.value)}
+              className="w-full h-14 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-2xl pl-12 pr-4 text-[10px] font-black uppercase tracking-widest appearance-none focus:ring-2 focus:ring-primary/20 outline-none"
+            >
+              {months.map(m => (
+                <option key={m.id} value={m.id}>{m.name}</option>
+              ))}
+            </select>
+            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+          </div>
         </div>
       </header>
 
@@ -214,84 +277,137 @@ export default function FarmerHarvestList() {
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Scanning Log Entry Registry...</p>
           </div>
         ) : (
-          <div className="bg-white dark:bg-surface-dark rounded-[40px] border border-slate-100 dark:border-white/5 shadow-sm overflow-hidden">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="bg-slate-50 dark:bg-white/[0.02] border-b border-slate-100 dark:border-white/5">
-                  <th className="px-6 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Chronology</th>
-                  <th className="px-6 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Counterparty</th>
-                  <th className="px-6 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Operational Asset</th>
-                  <th className="px-6 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Duration</th>
-                  <th className="px-6 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Yield (INR)</th>
-                  <th className="px-6 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Audit</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-50 dark:divide-white/5">
-                <AnimatePresence mode="popLayout">
-                  {filteredLogs.map((log) => {
-                    const machine = machines.find(m => m.id === log.machine_id);
-                    return (
-                      <motion.tr 
-                        key={log._id}
-                        layout
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors group"
-                      >
-                        <td className="px-6 py-5">
-                          <div className="flex items-baseline gap-2">
-                             <span className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-tighter">
-                               {new Date(log.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
-                             </span>
-                             <span className="text-[9px] font-bold text-slate-400 uppercase italic">{new Date(log.date).getFullYear()}</span>
-                          </div>
-                        </td>
-                        <td className="px-6 py-5">
-                          <div className="flex flex-col">
-                            <span className="text-[11px] font-black text-slate-900 dark:text-white uppercase tracking-tight">{log.farmer_name}</span>
-                            <div className="flex items-center gap-1.5 opacity-60">
-                               <MapPin className="w-3 h-3 text-red-400" />
-                               <span className="text-[9px] font-bold uppercase tracking-widest truncate max-w-[120px]">{log.location || 'Unknown'}</span>
+          <div className="space-y-4">
+            {/* Desktop Table */}
+            <div className="hidden lg:block bg-white dark:bg-surface-dark rounded-[40px] border border-slate-100 dark:border-white/5 shadow-sm overflow-hidden">
+              <table className="w-full border-collapse">
+                <thead>
+                  <tr className="bg-slate-50 dark:bg-white/[0.02] border-b border-slate-100 dark:border-white/5">
+                    <th className="px-6 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Chronology</th>
+                    <th className="px-6 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Counterparty</th>
+                    <th className="px-6 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest">Operational Asset</th>
+                    <th className="px-6 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Duration</th>
+                    <th className="px-6 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest text-right">Yield (INR)</th>
+                    <th className="px-6 py-5 text-left text-[10px] font-black text-slate-400 uppercase tracking-widest text-center">Audit</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-50 dark:divide-white/5">
+                  <AnimatePresence mode="popLayout">
+                    {filteredLogs.map((log) => {
+                      const machine = machines.find(m => m.id === log.machine_id);
+                      return (
+                        <motion.tr 
+                          key={log._id}
+                          layout
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          className="hover:bg-slate-50 dark:hover:bg-white/[0.02] transition-colors group"
+                        >
+                          <td className="px-6 py-5">
+                            <div className="flex items-baseline gap-2">
+                               <span className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-tighter">
+                                 {new Date(log.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                               </span>
+                               <span className="text-[9px] font-bold text-slate-400 uppercase italic">{new Date(log.date).getFullYear()}</span>
                             </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-5">
-                           <div className="flex items-center gap-3">
-                              <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center text-emerald-500">
-                                 <Tractor className="w-4 h-4" />
+                          </td>
+                          <td className="px-6 py-5">
+                            <div className="flex flex-col">
+                              <span className="text-[11px] font-black text-slate-900 dark:text-white uppercase tracking-tight">{log.farmer_name}</span>
+                              <div className="flex items-center gap-1.5 opacity-60">
+                                 <MapPin className="w-3 h-3 text-red-400" />
+                                 <span className="text-[9px] font-bold uppercase tracking-widest truncate max-w-[120px]">{log.location || 'Unknown'}</span>
                               </div>
-                              <div className="flex flex-col">
-                                 <span className="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-tighter">{machine?.name || 'Asset'}</span>
-                                 <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{machine?.model || log.machine_id}</span>
-                              </div>
-                           </div>
-                        </td>
-                        <td className="px-6 py-5 text-center">
-                           <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 dark:bg-white/5 rounded-full text-[10px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest">
-                              <Clock className="w-3 h-3 text-primary" />
-                              {log.hours.toFixed(1)} HR
-                           </span>
-                        </td>
-                        <td className="px-6 py-5 text-right font-black text-emerald-500 text-sm tracking-tighter leading-none">
-                           ₹{log.total_amount.toLocaleString()}
-                        </td>
-                        <td className="px-6 py-5">
-                           <button 
-                             onClick={() => navigate(`/machine-log/${encodeURIComponent(log.machine_id)}`, { state: { date: log.date } })}
-                             className="mx-auto w-8 h-8 bg-slate-100 dark:bg-white/5 rounded-lg flex items-center justify-center text-slate-400 hover:text-primary transition-all active:scale-90"
-                           >
-                             <ChevronRight className="w-4 h-4" />
-                           </button>
-                        </td>
-                      </motion.tr>
-                    );
-                  })}
-                </AnimatePresence>
-              </tbody>
-            </table>
-            
+                            </div>
+                          </td>
+                          <td className="px-6 py-5">
+                             <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+                                   <Tractor className="w-4 h-4" />
+                                </div>
+                                <div className="flex flex-col">
+                                   <span className="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-tighter">{machine?.name || 'Asset'}</span>
+                                   <span className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{machine?.model || log.machine_id}</span>
+                                </div>
+                             </div>
+                          </td>
+                          <td className="px-6 py-5 text-center">
+                             <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-slate-100 dark:bg-white/5 rounded-full text-[10px] font-black text-slate-600 dark:text-slate-400 uppercase tracking-widest">
+                                <Clock className="w-3 h-3 text-primary" />
+                                {log.hours.toFixed(1)} HR
+                             </span>
+                          </td>
+                          <td className="px-6 py-5 text-right font-black text-emerald-500 text-sm tracking-tighter leading-none">
+                             ₹{log.total_amount.toLocaleString()}
+                          </td>
+                          <td className="px-6 py-5">
+                             <button 
+                               onClick={() => navigate(`/machine-log/${encodeURIComponent(log.machine_id)}`, { state: { date: log.date } })}
+                               className="mx-auto w-8 h-8 bg-slate-100 dark:bg-white/5 rounded-lg flex items-center justify-center text-slate-400 hover:text-primary transition-all active:scale-90"
+                             >
+                               <ChevronRight className="w-4 h-4" />
+                             </button>
+                          </td>
+                        </motion.tr>
+                      );
+                    })}
+                  </AnimatePresence>
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile View */}
+            <div className="lg:hidden space-y-4">
+              {filteredLogs.map((log) => {
+                const machine = machines.find(m => m.id === log.machine_id);
+                return (
+                  <motion.div
+                    key={log._id}
+                    onClick={() => navigate(`/machine-log/${encodeURIComponent(log.machine_id)}`, { state: { date: log.date } })}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-white dark:bg-slate-900 p-5 rounded-[28px] border border-slate-100 dark:border-white/5 shadow-sm active:scale-98 transition-all relative overflow-hidden group"
+                  >
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+                          <Tractor className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className="text-[11px] font-black text-slate-900 dark:text-white uppercase leading-none mb-1">{log.farmer_name}</p>
+                          <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{new Date(log.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</p>
+                        </div>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-slate-300" />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 pt-4 border-t border-slate-100 dark:border-white/5">
+                      <div className="bg-slate-50 dark:bg-white/5 p-3 rounded-2xl">
+                        <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest mb-1">Operational Hours</p>
+                        <p className="text-sm font-black text-slate-900 dark:text-white italic tabular-nums">{log.hours.toFixed(1)} <span className="text-[8px] opacity-40 not-italic">HRS</span></p>
+                      </div>
+                      <div className="bg-emerald-500/5 dark:bg-emerald-500/10 p-3 rounded-2xl border border-emerald-500/10">
+                        <p className="text-[7px] font-black text-emerald-500 uppercase tracking-widest mb-1">Total Billing</p>
+                        <p className="text-sm font-black text-emerald-500 italic tabular-nums">₹{log.total_amount.toLocaleString()}</p>
+                      </div>
+                    </div>
+
+                    <div className="mt-4 flex items-center justify-between">
+                       <div className="flex items-center gap-1.5">
+                          <MapPin className="w-3 h-3 text-red-400" />
+                          <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest italic">{log.location || 'Unknown'}</span>
+                       </div>
+                       <span className="text-[9px] font-black text-slate-900 dark:text-white uppercase tracking-tighter italic bg-slate-100 dark:bg-white/5 px-2 py-0.5 rounded-md">
+                          {machine?.name || log.machine_id}
+                       </span>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
+
             {filteredLogs.length === 0 && (
-              <div className="py-32 flex flex-col items-center justify-center text-center px-10">
+              <div className="py-24 flex flex-col items-center justify-center text-center px-10 bg-white dark:bg-surface-dark rounded-[40px] border border-slate-100 dark:border-white/5 shadow-sm">
                 <div className="w-20 h-20 bg-slate-50 dark:bg-white/5 rounded-[32px] flex items-center justify-center mb-6">
                    <FileStack className="w-10 h-10 text-slate-200 dark:text-white/10" />
                 </div>

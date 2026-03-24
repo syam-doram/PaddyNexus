@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { AuthProvider, useAuth, Role } from './context/AuthContext';
 import { MachineProvider } from './context/MachineContext';
 import { ThemeProvider, useTheme } from './context/ThemeContext';
+import { LoadingProvider } from './context/LoadingContext';
 import { App as CapApp } from '@capacitor/app';
 import { Toast } from '@capacitor/toast';
 import * as Lazy from './screens/lazy';
@@ -150,11 +151,13 @@ export default function App() {
   return (
     <AuthProvider>
       <ThemeProvider>
-        <MachineProvider>
-          <Router>
-            <AppContent />
-          </Router>
-        </MachineProvider>
+        <LoadingProvider>
+          <MachineProvider>
+            <Router>
+              <AppContent />
+            </Router>
+          </MachineProvider>
+        </LoadingProvider>
       </ThemeProvider>
     </AuthProvider>
   );

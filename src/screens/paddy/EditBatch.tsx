@@ -211,7 +211,7 @@ export default function EditBatch() {
             )}
           </div>
         </header>
-        <main className="flex-1 p-3 lg:p-8 pb-32 lg:pb-8 overflow-y-auto no-scrollbar">
+        <main className="flex-1 p-3 lg:p-8 pb-12 lg:pb-8 overflow-y-auto no-scrollbar">
             <div className="max-w-2xl mx-auto w-full space-y-4 lg:space-y-6">
                 
                 {/* Identification & Status */}
@@ -479,18 +479,7 @@ export default function EditBatch() {
             </div>
         </main>
 
-        {/* Mobile Action Bar */}
-        {!isDelivered && (
-          <div className="md:hidden fixed bottom-0 left-0 right-0 p-6 bg-white/80 dark:bg-black/80 backdrop-blur-xl border-t border-slate-100 dark:border-white/5">
-              <button
-                  onClick={handleSave}
-                  className="w-full py-4 bg-primary text-background-dark rounded-2xl text-[11px] font-black uppercase tracking-[.2em] shadow-xl shadow-primary/20 flex items-center justify-center gap-3 active:scale-95 transition-all"
-              >
-                  <Save className="w-5 h-5" />
-                  Commit Batch Specs
-              </button>
-          </div>
-        )}
+
 
         {/* Confirmation Modal */}
         <AnimatePresence>

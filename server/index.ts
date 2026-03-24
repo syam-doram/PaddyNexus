@@ -1377,6 +1377,30 @@ app.get('/api/batches', async (req, res) => {
   }
 });
 
+app.delete('/api/batches/:id', async (req, res) => {
+  const { id } = req.params;
+  const { traderId } = req.query;
+  try {
+    const batch = await Batch.findById(id);
+    if (!batch) return res.status(404).json({ error: 'Batch not found' });
+    
+    // Safety check: Don't delete if lot is settled
+    const lot = await Lot.findOne({ id: batch.lotId });
+    if (lot && lot.stage === 'SETTLED') {
+      return res.status(403).json({ error: 'Cannot delete batch from a settled lot.' });
+    }
+
+    if (traderId && batch.trader_id && batch.trader_id.toString() !== traderId.toString()) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    await Batch.findByIdAndDelete(id);
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 app.get('/api/mills', async (req, res) => {
   const { traderId } = req.query;
   try {

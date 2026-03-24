@@ -48,6 +48,31 @@ export default function MachineSettleDetail() {
     if (machineId) fetchReport();
   }, [machineId, activeYear]);
 
+  const groupedLogs = useMemo(() => {
+    if (!reportData?.logs) return [];
+    const groups: { month: string; monthId: string; logs: any[]; total: number }[] = [];
+    const monthMap = new Map<string, { logs: any[]; total: number }>();
+    
+    reportData.logs.forEach((log: any) => {
+        const date = new Date(log.date);
+        const monthName = date.toLocaleString('en-IN', { month: 'long' });
+        const key = `${monthName} ${date.getFullYear()}`;
+        if (!monthMap.has(key)) {
+            monthMap.set(key, { logs: [], total: 0 });
+        }
+        const group = monthMap.get(key)!;
+        group.logs.push(log);
+        group.total += (log.total_amount || 0);
+    });
+    
+    monthMap.forEach((data, month) => {
+        const monthId = data.logs[0].date.split('-')[1];
+        groups.push({ month, monthId, logs: data.logs, total: data.total });
+    });
+    
+    return groups.sort((a, b) => b.monthId.localeCompare(a.monthId));
+  }, [reportData?.logs]);
+
   const handleSettleMachine = () => {
     setConfirmConfig({
         title: 'Finalize Settlement',
@@ -327,42 +352,94 @@ export default function MachineSettleDetail() {
                 <div className="lg:col-span-2 space-y-16">
                     {/* Operational Ledger */}
                     <section>
-                        <h4 className="text-[11px] font-black text-slate-900 dark:text-white uppercase tracking-[0.3em] mb-8 flex items-center justify-between gap-4">
-                            <div className="flex items-center gap-4">
-                                <TrendingUp className="w-5 h-5 text-emerald-500" /> Operational Deployment Ledger
-                            </div>
-                            <button 
-                                onClick={() => navigate('/farmer-harvest-list', { state: { machineId: machineId, year: activeYear.toString() } })}
-                                className="px-4 py-2 bg-slate-100 dark:bg-white/5 rounded-xl text-[9px] font-black uppercase tracking-widest text-primary hover:bg-primary hover:text-background-dark transition-all flex items-center gap-2 border border-slate-200 dark:border-white/10"
-                            >
-                                <ListFilter className="w-3.5 h-3.5" /> Full Journal
-                            </button>
+                        <h4 className="text-[11px] font-black text-slate-900 dark:text-white uppercase tracking-[0.3em] mb-8 flex items-center gap-4">
+                            <TrendingUp className="w-5 h-5 text-emerald-500" /> Operational Deployment Ledger
                         </h4>
                         
-                        <div className="bg-white dark:bg-surface-dark rounded-[32px] border border-slate-100 dark:border-white/5 overflow-hidden shadow-sm">
-                            {/* Desktop Table */}
-                            <table className="w-full hidden md:table">
-                                <thead>
-                                    <tr className="text-left bg-slate-50 dark:bg-white/5 border-b border-slate-100 dark:border-white/5">
-                                        <th className="p-6 text-[10px] font-black uppercase tracking-widest text-slate-400">Date</th>
-                                        <th className="p-6 text-[10px] font-black uppercase tracking-widest text-slate-400">Farmer</th>
-                                        <th className="p-6 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Usage</th>
-                                        <th className="p-6 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Subtotal</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-slate-50 dark:divide-white/5">
-                                    {reportData.logs.map((l: any) => (
-                                        <tr key={l.id} className="group hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors border-l-4 border-l-transparent hover:border-l-primary">
-                                            <td className="p-4 px-6 md:p-5 md:px-8">
-                                                <p className="text-[10px] md:text-[11px] font-black text-slate-900 dark:text-white uppercase">
-                                                    {new Date(l.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
-                                                </p>
-                                            </td>
-                                            <td className="p-4 px-6 md:p-5 md:px-8">
-                                                <div className="flex flex-col gap-0.5">
-                                                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-tight line-clamp-1">{l.farmer_name}</p>
+                        <div className="space-y-8">
+                            {groupedLogs.map((group) => (
+                                <div key={group.month} className="space-y-4">
+                                    <div 
+                                        onClick={() => navigate('/farmer-harvest-list', { state: { machineId: machineId, year: activeYear.toString(), month: group.monthId } })}
+                                        className="flex items-center justify-between px-4 py-2 bg-slate-100 dark:bg-white/5 rounded-2xl cursor-pointer hover:bg-primary/10 transition-colors group/header"
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <Calendar className="w-4 h-4 text-primary" />
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">{group.month}</span>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <span className="text-[10px] font-black text-emerald-500">₹{group.total.toLocaleString()}</span>
+                                            <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover/header:translate-x-1 transition-transform" />
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-white dark:bg-surface-dark rounded-[32px] border border-slate-100 dark:border-white/5 overflow-hidden shadow-sm">
+                                        {/* Desktop Table */}
+                                        <table className="w-full hidden md:table">
+                                            <thead>
+                                                <tr className="text-left bg-slate-50 dark:bg-white/5 border-b border-slate-100 dark:border-white/5">
+                                                    <th className="p-6 text-[10px] font-black uppercase tracking-widest text-slate-400">Date</th>
+                                                    <th className="p-6 text-[10px] font-black uppercase tracking-widest text-slate-400">Farmer</th>
+                                                    <th className="p-6 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Usage</th>
+                                                    <th className="p-6 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Subtotal</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-slate-50 dark:divide-white/5">
+                                                {group.logs.map((l: any) => (
+                                                    <tr 
+                                                        key={l.id} 
+                                                        onClick={() => navigate('/farmer-harvest-list', { state: { machineId: machineId, year: activeYear.toString(), month: group.monthId } })}
+                                                        className="group hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors border-l-4 border-l-transparent hover:border-l-primary cursor-pointer"
+                                                    >
+                                                        <td className="p-4 px-6 md:p-5 md:px-8">
+                                                            <p className="text-[10px] md:text-[11px] font-black text-slate-900 dark:text-white uppercase">
+                                                                {new Date(l.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                                                            </p>
+                                                        </td>
+                                                        <td className="p-4 px-6 md:p-5 md:px-8">
+                                                            <div className="flex flex-col gap-0.5">
+                                                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-tight line-clamp-1">{l.farmer_name}</p>
+                                                                <div className="flex items-center gap-2">
+                                                                    <p className="text-[8px] font-black text-slate-300 uppercase">₹{l.rate}/Hr</p>
+                                                                    {l.location && (
+                                                                        <span className="text-[7px] font-black text-primary uppercase bg-primary/5 px-1.5 py-0.5 rounded-full border border-primary/10">
+                                                                            {l.location}
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="p-4 px-6 md:p-5 md:px-8 text-center">
+                                                            <span className="px-3 py-1 bg-slate-100 dark:bg-white/10 rounded-full text-[10px] font-black text-slate-500 uppercase">
+                                                                {l.hours} HR
+                                                            </span>
+                                                        </td>
+                                                        <td className="p-4 px-6 md:p-5 md:px-8 text-right font-black text-emerald-600">
+                                                            ₹{l.total_amount.toLocaleString()}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+
+                                        {/* Mobile List View */}
+                                        <div className="md:hidden divide-y divide-slate-50 dark:divide-white/5">
+                                            {group.logs.map((l: any) => (
+                                                <div 
+                                                    key={l.id} 
+                                                    onClick={() => navigate('/farmer-harvest-list', { state: { machineId: machineId, year: activeYear.toString(), month: group.monthId } })}
+                                                    className="p-5 active:bg-slate-50 dark:active:bg-white/5 transition-colors cursor-pointer"
+                                                >
+                                                    <div className="flex justify-between items-start mb-2">
+                                                        <div>
+                                                            <p className="text-[8px] font-black text-slate-300 uppercase mb-0.5">{new Date(l.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'long' })}</p>
+                                                            <p className="text-xs font-black text-slate-900 dark:text-white uppercase truncate">{l.farmer_name}</p>
+                                                        </div>
+                                                        <p className="text-sm font-black text-emerald-500">₹{l.total_amount.toLocaleString()}</p>
+                                                    </div>
                                                     <div className="flex items-center gap-2">
-                                                        <p className="text-[8px] font-black text-slate-300 uppercase">₹{l.rate}/Hr</p>
+                                                        <span className="px-2 py-0.5 bg-slate-100 dark:bg-white/5 rounded-md text-[8px] font-black text-slate-500 uppercase">{l.hours} HR</span>
+                                                        <span className="text-[8px] font-black text-slate-300 uppercase">@ ₹{l.rate}</span>
                                                         {l.location && (
                                                             <span className="text-[7px] font-black text-primary uppercase bg-primary/5 px-1.5 py-0.5 rounded-full border border-primary/10">
                                                                 {l.location}
@@ -370,46 +447,14 @@ export default function MachineSettleDetail() {
                                                         )}
                                                     </div>
                                                 </div>
-                                            </td>
-                                            <td className="p-4 px-6 md:p-5 md:px-8 text-center">
-                                                <span className="px-3 py-1 bg-slate-100 dark:bg-white/10 rounded-full text-[10px] font-black text-slate-500 uppercase">
-                                                    {l.hours} HR
-                                                </span>
-                                            </td>
-                                            <td className="p-4 px-6 md:p-5 md:px-8 text-right font-black text-emerald-600">
-                                                ₹{l.total_amount.toLocaleString()}
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-
-                            {/* Mobile List View */}
-                            <div className="md:hidden divide-y divide-slate-50 dark:divide-white/5">
-                                {reportData.logs.map((l: any) => (
-                                    <div key={l.id} className="p-5 active:bg-slate-50 dark:active:bg-white/5 transition-colors">
-                                        <div className="flex justify-between items-start mb-2">
-                                            <div>
-                                                <p className="text-[8px] font-black text-slate-300 uppercase mb-0.5">{new Date(l.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'long' })}</p>
-                                                <p className="text-xs font-black text-slate-900 dark:text-white uppercase truncate">{l.farmer_name}</p>
-                                            </div>
-                                            <p className="text-sm font-black text-emerald-500">₹{l.total_amount.toLocaleString()}</p>
-                                        </div>
-                                        <div className="flex items-center gap-2">
-                                            <span className="px-2 py-0.5 bg-slate-100 dark:bg-white/5 rounded-md text-[8px] font-black text-slate-500 uppercase">{l.hours} HR</span>
-                                            <span className="text-[8px] font-black text-slate-300 uppercase">@ ₹{l.rate}</span>
-                                            {l.location && (
-                                                <span className="text-[7px] font-black text-primary uppercase bg-primary/5 px-1.5 py-0.5 rounded-full border border-primary/10">
-                                                    {l.location}
-                                                </span>
-                                            )}
+                                            ))}
                                         </div>
                                     </div>
-                                ))}
-                            </div>
+                                </div>
+                            ))}
 
-                            {reportData.logs.length === 0 && (
-                                <div className="py-20 text-center opacity-40">
+                            {groupedLogs.length === 0 && (
+                                <div className="py-20 text-center opacity-40 bg-white dark:bg-surface-dark rounded-[32px] border border-slate-100 dark:border-white/5">
                                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No Activity Registered</p>
                                 </div>
                             )}
