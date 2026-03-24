@@ -1777,8 +1777,10 @@ app.get('/api/mill-settlements', async (req, res) => {
           const wStr = String(b.weight || '0').replace(/,/g, '').split(' ')[0];
           let wNum = parseFloat(wStr);
           if (isNaN(wNum)) return s;
+          // If weight is per-bag (e.g. 73), multiply by bags. If it's already total weight (e.g. > 1000), use as is.
           if (String(b.weight).toLowerCase().includes('ton') && wNum < 100) wNum *= 1000;
-          return s + wNum;
+          const batchWeight = (wNum > 0 && wNum < 200) ? (wNum * (b.bags || 1)) : wNum;
+          return s + batchWeight;
         }, 0);
 
         // Determine weight consistent with frontend logic: prioritizes scales, then batch weights, then lot main weight, then bag-count baseline
@@ -1805,7 +1807,8 @@ app.get('/api/mill-settlements', async (req, res) => {
         }
 
         const bagWeight = parseFloat(lot.weight_capacity as string) || 73;
-        const lotTotalBags = effectiveWeight / bagWeight; // Total bags
+        // Prioritize explicit bag counts from batches if they exist
+        const lotTotalBags = bagSum > 0 ? bagSum : (effectiveWeight / bagWeight); 
         
         // 1. Calculate Total Weight (bags * weight capacity)
         const lotTotalWeight = lotTotalBags * bagWeight; 
@@ -1921,13 +1924,15 @@ app.get('/api/mill-settlements/:millId', async (req, res) => {
       const lotBatches = batches.filter(b => (b.lotId || '').trim().toLowerCase() === lotIdTrimmedLower);
       const rateRow = lotRates.find(r => (r.lotId || '').trim().toLowerCase() === lotIdTrimmedLower);
       
-      const totalBags = lotBatches.reduce((sum, b) => sum + (b.bags || 0), 0);
+      const totalBagsInBatches = lotBatches.reduce((sum, b) => sum + (b.bags || 0), 0);
       const totalWeightKgs = lotBatches.reduce((sum, b) => {
         const wStr = String(b.weight || '0').replace(/,/g, '').split(' ')[0];
         let wNum = parseFloat(wStr);
         if (isNaN(wNum)) return sum;
         if (String(b.weight).toLowerCase().includes('ton') && wNum < 100) wNum *= 1000;
-        return sum + wNum;
+        // If weight seems to be per-bag (e.g. 73), multiply by bags
+        const batchWeight = (wNum > 0 && wNum < 200) ? (wNum * (b.bags || 1)) : wNum;
+        return sum + batchWeight;
       }, 0);
 
       const paddyRate = rateRow?.rate || 1200;
@@ -1936,13 +1941,13 @@ app.get('/api/mill-settlements/:millId', async (req, res) => {
       let effectiveWeight = totalWeightKgs;
       if (lot.post_load_scale > 0 && lot.pre_load_scale > 0) {
         effectiveWeight = lot.post_load_scale - lot.pre_load_scale;
-      } else if (effectiveWeight === 0 && totalBags > 0) {
-        effectiveWeight = totalBags * 73;
+      } else if (effectiveWeight === 0 && totalBagsInBatches > 0) {
+        effectiveWeight = totalBagsInBatches * 73;
       }
 
       // Calculate amount consistent with frontend logic (GROSS amount - Bag Weight Based)
       const bagWeight = parseFloat(lot.weight_capacity as string) || 73;
-      const lotTotalBags = effectiveWeight / bagWeight;
+      const lotTotalBags = totalBagsInBatches > 0 ? totalBagsInBatches : (effectiveWeight / bagWeight);
 
       // 1. Total Weight = Bags * Weight Capacity
       const lotTotalWeight = lotTotalBags * bagWeight;
