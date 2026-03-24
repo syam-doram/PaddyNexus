@@ -1805,24 +1805,38 @@ app.get('/api/mill-settlements', async (req, res) => {
         }
 
         const bagWeight = parseFloat(lot.weight_capacity as string) || 73;
-        const calcBags = effectiveWeight / bagWeight;
+        const lotTotalBags = effectiveWeight / bagWeight; // Total bags
+        
+        // 1. Calculate Total Weight (bags * weight capacity)
+        const lotTotalWeight = lotTotalBags * bagWeight; 
+        
+        // 2. Calculate PADDY per KG Rate (Paddy Bag Rate / KGs)
+        const paddyRatePerBag = ratesByLot.get(lotIdKey) || 1200;
+        const perKgPaddyRate = paddyRatePerBag / bagWeight;
+        
+        // 3. Calculate Total Paddy Gross (Total Weight * Per KG Rate)
+        const totalPaddyGross = lotTotalWeight * perKgPaddyRate;
 
-        const paddyRate = ratesByLot.get(lotIdKey) || 1200;
         const lotYear = new Date(lot.date).getFullYear().toString();
         const comm = commRates.find(c => c.year === parseInt(lotYear));
-        const dealer_comm = comm?.bag_rate || 0;
-        const labour_comm = comm?.labour_rate || 0;
+        const dealer_comm_rate = comm?.bag_rate || 0;
+        const labour_comm_rate = comm?.labour_rate || 0;
+        
+        // Commissions are also per-bag based
+        const totalTraderComm = lotTotalBags * dealer_comm_rate;
+        const totalLabourComm = lotTotalBags * labour_comm_rate;
 
-        let grossPaddy = calcBags * paddyRate;
-        let lotValue = grossPaddy + (calcBags * dealer_comm) + (calcBags * labour_comm);
+        // 4. Final Total Gross = Paddy Gross + Trader Amount + Labour Amount
+        let lotFinalGross = totalPaddyGross + totalTraderComm + totalLabourComm;
+        
         let lotDeductions = 0;
         if (lot.manual_deductions_applied === 1) {
           lotDeductions = ((lot.moisture_loss || 0) + (lot.bag_penalty || 0) + (lot.labor_cost || 0));
         }
 
-        totalGross += lotValue;
+        totalGross += lotFinalGross;
         totalDeductions += lotDeductions;
-        totalBags += calcBags;
+        totalBags += lotTotalBags;
         if (lot.stage === 'SETTLED') settledCount++;
       });
 
@@ -1928,19 +1942,30 @@ app.get('/api/mill-settlements/:millId', async (req, res) => {
 
       // Calculate amount consistent with frontend logic (GROSS amount - Bag Weight Based)
       const bagWeight = parseFloat(lot.weight_capacity as string) || 73;
-      const calcBags = effectiveWeight / bagWeight;
-      
-      const lotValue = calcBags * paddyRate;
-      const traderValue = calcBags * dealer_comm;
-      const labourValue = calcBags * labour_comm;
-      
-      const grossAmount = lotValue + traderValue + labourValue;
+      const lotTotalBags = effectiveWeight / bagWeight;
+
+      // 1. Total Weight = Bags * Weight Capacity
+      const lotTotalWeight = lotTotalBags * bagWeight;
+
+      // 2. Per KG Rate = Paddy Rate / Weight Capacity
+      const paddyRatePerBag = rateRow?.rate || 1200;
+      const perKgPaddyRate = paddyRatePerBag / bagWeight;
+
+      // 3. Total Paddy Gross = Total Weight * Per KG Rate
+      const totalPaddyGross = lotTotalWeight * perKgPaddyRate;
+
+      // 4. Commissions
+      const totalTraderComm = lotTotalBags * dealer_comm;
+      const totalLabourComm = lotTotalBags * labour_comm;
+
+      // 5. Final Total Gross = Paddy Gross + Trader Amount + Labour Amount
+      const grossAmount = totalPaddyGross + totalTraderComm + totalLabourComm;
 
       return {
         ...lot,
-        totalBags: calcBags,
-        totalWeightKgs: effectiveWeight,
-        paddyRate,
+        totalBags: lotTotalBags,
+        totalWeightKgs: lotTotalWeight,
+        paddyRate: paddyRatePerBag,
         dealer_commission_rate: dealer_comm,
         labour_commission_rate: labour_comm,
         totalAmount: grossAmount

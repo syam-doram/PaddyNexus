@@ -10,9 +10,7 @@ const getApiBaseUrl = () => {
   const envUrl = import.meta.env.VITE_API_URL;
   if (envUrl) return envUrl;
 
-  // In development (Vite), return /api to use the proxy
-  // In production (no proxy), this might still work if served together, 
-  // but for mobile, we usually need an absolute URL.
+  // Always use the production URL for global stability
   return 'https://paddynexus.onrender.com/api';
 };
 

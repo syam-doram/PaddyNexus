@@ -1,6 +1,6 @@
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
-import { ArrowLeft, Clock, Map, IndianRupee, ChevronRight, Plus, CheckCircle2, Tractor, Phone, Play, Pause, AlertCircle, User, Pencil, Check, Banknote, Calendar, X, Trash2, Bell, Gauge } from 'lucide-react';
+import { ArrowLeft, Clock, Map, IndianRupee, ChevronRight, Plus, CheckCircle2, Tractor, Phone, Play, Pause, AlertCircle, User, Pencil, Check, Banknote, Calendar, X, Trash2, Bell, Gauge, ListFilter } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Machine, useMachines, formatDateToLocalISO } from '../../context/MachineContext';
@@ -340,6 +340,13 @@ export default function MachineLog() {
                          Machine Deployment History
                          <span className="text-primary text-[10px] md:text-sm font-bold bg-primary/10 px-3 py-1 rounded-full">{timelineItems.length} Records</span>
                     </h3>
+                    <button 
+                        onClick={() => navigate('/farmer-harvest-list', { state: { machineId: machine?.id || machineId, year: passedDate.split('-')[0] } })}
+                        className="px-6 py-3 bg-slate-100 dark:bg-white/5 rounded-2xl text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary hover:text-background-dark transition-all flex items-center gap-3 border border-slate-200 dark:border-white/10"
+                    >
+                        <ListFilter className="w-4 h-4" />
+                        Full Journal
+                    </button>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

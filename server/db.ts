@@ -4,7 +4,6 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 const uri = process.env.MONGODB_URI || 'mongodb+srv://syamkdoram_db_user:LLCqKjfpxZCfDCVS@paddy-cluster.mwdyyx3.mongodb.net/?appName=paddy-cluster';
-
 mongoose.connect(uri)
   .then(() => console.log('Connected to MongoDB'))
   .catch(err => console.error('MongoDB connection error:', err));

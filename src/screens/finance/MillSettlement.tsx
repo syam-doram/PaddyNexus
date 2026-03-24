@@ -136,9 +136,22 @@ export default function MillSettlement() {
     const bagPenalty = (lot.manual_deductions_applied === 1) ? (lot.bag_penalty || 0) : 0;
     const laborCost = (lot.manual_deductions_applied === 1) ? (lot.labor_cost || 0) : 0;
     const totalDeductions = moistureLoss + bagPenalty + laborCost;
-    const currentLotAmount = (lot.totalWeightKgs || 0) * ((lot.paddyRate || 1200) / 73);
-    const traderAmount = (lot.totalBags || 0) * (lot.dealer_commission_rate || 0);
-    const labourAmount = (lot.totalBags || 0) * (lot.labour_commission_rate || 0);
+    const bagWeight = parseFloat(lot.weight_capacity as string) || 73;
+    const lotTotalBags = lot.totalBags || 0;
+    
+    // 1. Total Weight = Bags * Weight Capacity
+    const lotTotalWeight = lotTotalBags * bagWeight;
+    
+    // 2. Per KG Rate = Paddy Rate / Weight Capacity
+    const perKgPaddyRate = (lot.paddyRate || 1200) / bagWeight;
+    
+    // 3. Total Paddy Gross = Total Weight * Per KG Rate
+    const currentLotAmount = lotTotalWeight * perKgPaddyRate;
+    
+    // 4. Commissions
+    const traderAmount = lotTotalBags * (lot.dealer_commission_rate || 0);
+    const labourAmount = lotTotalBags * (lot.labour_commission_rate || 0);
+    
     const netPayable = (currentLotAmount + traderAmount + labourAmount) - totalPayments - totalDeductions;
 
     const reportHtml = `
@@ -609,10 +622,21 @@ export default function MillSettlement() {
 
   const globalGross = lots.reduce((sum: number, l: any) => {
     const bagWeight = parseFloat(l.weight_capacity) || 73;
-    const calcBags = (l.totalWeightKgs || 0) / bagWeight;
-    const lotValue = calcBags * (l.paddyRate || 1200);
-    const lotTrader = (l.totalBags || 0) * (l.dealer_commission_rate || 0);
-    const lotLabour = (l.totalBags || 0) * (l.labour_commission_rate || 0);
+    const lotTotalBags = l.totalBags || 0;
+    
+    // 1. Total Weight = Bags * Weight Capacity
+    const lotTotalWeight = lotTotalBags * bagWeight;
+    
+    // 2. Per KG Rate = Paddy Rate / Weight Capacity
+    const perKgPaddyRate = (l.paddyRate || 1200) / bagWeight;
+    
+    // 3. Total Paddy Gross = Total Weight * Per KG Rate
+    const lotValue = lotTotalWeight * perKgPaddyRate;
+    
+    // 4. Commissions
+    const lotTrader = lotTotalBags * (l.dealer_commission_rate || 0);
+    const lotLabour = lotTotalBags * (l.labour_commission_rate || 0);
+    
     return sum + lotValue + lotTrader + lotLabour;
   }, 0);
 

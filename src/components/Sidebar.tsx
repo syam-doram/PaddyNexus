@@ -1,4 +1,4 @@
-import { Home, Server, IndianRupee, User, Package, Tractor, Truck, Factory, PlusCircle, Users as UsersIcon, LogOut, Settings, Sun, Moon, ListFilter } from 'lucide-react';
+import { Home, Server, IndianRupee, User, Package, Tractor, Truck, Factory, PlusCircle, Users as UsersIcon, LogOut, Settings, Sun, Moon } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -13,7 +13,6 @@ export default function Sidebar() {
   const machineNavItems = [
     { icon: Home, label: 'Home', path: '/dashboard' },
      { icon: Server, label: 'Machines', path: '/machines' },
-     { icon: ListFilter, label: 'Harvest Logs', path: '/farmer-harvest-list' },
      { icon: IndianRupee, label: 'Settlement', path: '/machine-settlement' },
     { icon: User, label: 'Profile', path: '/profile' },
   ];
@@ -29,7 +28,6 @@ export default function Sidebar() {
   const traderNavItems = [
     { icon: Home, label: 'Overview', path: '/dashboard' },
      { icon: Server, label: 'Machines', path: '/machines' },
-     { icon: ListFilter, label: 'Harvest Logs', path: '/farmer-harvest-list' },
      { icon: IndianRupee, label: 'Settlement', path: '/machine-settlement' },
     { icon: Tractor, label: 'Machine Earn', path: '/trader/machine-earn' },
     { icon: PlusCircle, label: 'Main Entries', path: '/trader/entries' },
