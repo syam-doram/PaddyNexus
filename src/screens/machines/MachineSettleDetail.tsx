@@ -8,624 +8,545 @@ import { useAuth } from '../../context/AuthContext';
 import { API_BASE_URL } from '../../config/apiConfig';
 
 export default function MachineSettleDetail() {
-  const { machineId } = useParams();
-  const location = useLocation();
-  const navigate = useNavigate();
-  const { user } = useAuth();
-  const queryParams = new URLSearchParams(location.search);
-  const activeYear = parseInt(queryParams.get('year') || new Date().getFullYear().toString());
-  
-  const [loading, setLoading] = useState(true);
-  const [reportData, setReportData] = useState<any>(null);
-  const [isSettling, setIsSettling] = useState(false);
-  const [remittanceAmount, setRemittanceAmount] = useState('');
-  const [remittanceDesc, setRemittanceDesc] = useState('');
-  const [showConfirm, setShowConfirm] = useState(false);
-  const [confirmConfig, setConfirmConfig] = useState<{
-    title: string;
-    description: string;
-    action: () => void;
-    type: 'critical' | 'action';
-  }>({ title: '', description: '', action: () => {}, type: 'action' });
+    const { machineId } = useParams();
+    const location = useLocation();
+    const navigate = useNavigate();
+    const { user } = useAuth();
+    const queryParams = new URLSearchParams(location.search);
+    const activeYear = parseInt(queryParams.get('year') || new Date().getFullYear().toString());
 
-  const fetchReport = async () => {
-    setLoading(true);
-    try {
-      const tId = user?.trader_id || user?.id;
-      let url = `${API_BASE_URL}/machine-report/${encodeURIComponent(machineId!)}?year=${activeYear}`;
-      if (tId) url += `&traderId=${tId}`;
-      const res = await fetch(url);
-      const data = await res.json();
-      setReportData(data);
-    } catch (err) {
-      console.error("Failed to fetch report:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
+    const [loading, setLoading] = useState(true);
+    const [reportData, setReportData] = useState<any>(null);
+    const [isSettling, setIsSettling] = useState(false);
+    const [remittanceAmount, setRemittanceAmount] = useState('');
+    const [remittanceDesc, setRemittanceDesc] = useState('');
+    const [showConfirm, setShowConfirm] = useState(false);
+    const [confirmConfig, setConfirmConfig] = useState<{
+        title: string;
+        description: string;
+        action: () => void;
+        type: 'critical' | 'action';
+    }>({ title: '', description: '', action: () => { }, type: 'action' });
 
-  useEffect(() => {
-    if (machineId) fetchReport();
-  }, [machineId, activeYear]);
-
-  const groupedLogs = useMemo(() => {
-    if (!reportData?.logs) return [];
-    const groups: { month: string; monthId: string; logs: any[]; total: number }[] = [];
-    const monthMap = new Map<string, { logs: any[]; total: number }>();
-    
-    reportData.logs.forEach((log: any) => {
-        const date = new Date(log.date);
-        const monthName = date.toLocaleString('en-IN', { month: 'long' });
-        const key = `${monthName} ${date.getFullYear()}`;
-        if (!monthMap.has(key)) {
-            monthMap.set(key, { logs: [], total: 0 });
+    const fetchReport = async () => {
+        setLoading(true);
+        try {
+            const tId = user?.trader_id || user?.id;
+            let url = `${API_BASE_URL}/machine-report/${encodeURIComponent(machineId!)}?year=${activeYear}`;
+            if (tId) url += `&traderId=${tId}`;
+            const res = await fetch(url);
+            const data = await res.json();
+            setReportData(data);
+        } catch (err) {
+            console.error("Failed to fetch report:", err);
+        } finally {
+            setLoading(false);
         }
-        const group = monthMap.get(key)!;
-        group.logs.push(log);
-        group.total += (log.total_amount || 0);
-    });
-    
-    monthMap.forEach((data, month) => {
-        const monthId = data.logs[0].date.split('-')[1];
-        groups.push({ month, monthId, logs: data.logs, total: data.total });
-    });
-    
-    return groups.sort((a, b) => b.monthId.localeCompare(a.monthId));
-  }, [reportData?.logs]);
+    };
 
-  const handleSettleMachine = () => {
-    setConfirmConfig({
-        title: 'Finalize Settlement',
-        description: 'Are you sure you want to FINAL PROGRESS this settlement? This will lock the machine logs for this year. This is a critical session action.',
-        type: 'critical',
-        action: async () => {
-            setIsSettling(true);
-            try {
-                const tId = user?.trader_id || user?.id;
-                let url = `${API_BASE_URL}/machines/${encodeURIComponent(machineId!)}/settle?year=${activeYear}`;
-                if (tId) url += `&traderId=${tId}`;
-                const res = await fetch(url, { method: 'POST' });
-                if (res.ok) fetchReport();
-            } catch (err) {
-                console.error("Settlement failed:", err);
-            } finally {
-                setIsSettling(false);
-                setShowConfirm(false);
+    useEffect(() => {
+        if (machineId) fetchReport();
+    }, [machineId, activeYear]);
+
+    const groupedLogs = useMemo(() => {
+        if (!reportData?.logs) return [];
+        const groups: { month: string; monthId: string; logs: any[]; total: number }[] = [];
+        const monthMap = new Map<string, { logs: any[]; total: number }>();
+
+        reportData.logs.forEach((log: any) => {
+            const date = new Date(log.date);
+            const monthName = date.toLocaleString('en-IN', { month: 'long' });
+            const key = `${monthName} ${date.getFullYear()}`;
+            if (!monthMap.has(key)) {
+                monthMap.set(key, { logs: [], total: 0 });
             }
-        }
-    });
-    setShowConfirm(true);
-  };
+            const group = monthMap.get(key)!;
+            group.logs.push(log);
+            group.total += (log.total_amount || 0);
+        });
 
-  const handleReopenMachine = () => {
-    setConfirmConfig({
-        title: 'Reopen Ledger',
-        description: 'Are you sure you want to REOPEN this ledger? This will allow new entries and remittances for this session.',
-        type: 'action',
-        action: async () => {
-            setIsSettling(true);
-            try {
-                const tId = user?.trader_id || user?.id;
-                let url = `${API_BASE_URL}/machines/${encodeURIComponent(machineId!)}/reopen?year=${activeYear}`;
-                if (tId) url += `&traderId=${tId}`;
-                const res = await fetch(url, { method: 'POST' });
-                if (res.ok) fetchReport();
-            } catch (err) {
-                console.error("Reopen failed:", err);
-            } finally {
-                setIsSettling(false);
-                setShowConfirm(false);
+        monthMap.forEach((data, month) => {
+            const monthId = data.logs[0].date.split('-')[1];
+            groups.push({ month, monthId, logs: data.logs, total: data.total });
+        });
+
+        return groups.sort((a, b) => b.monthId.localeCompare(a.monthId));
+    }, [reportData?.logs]);
+
+    const handleSettleMachine = () => {
+        setConfirmConfig({
+            title: 'Finalize Settlement',
+            description: 'Are you sure you want to FINAL PROGRESS this settlement? This will lock the machine logs for this year. This is a critical session action.',
+            type: 'critical',
+            action: async () => {
+                setIsSettling(true);
+                try {
+                    const tId = user?.trader_id || user?.id;
+                    let url = `${API_BASE_URL}/machines/${encodeURIComponent(machineId!)}/settle?year=${activeYear}`;
+                    if (tId) url += `&traderId=${tId}`;
+                    const res = await fetch(url, { method: 'POST' });
+                    if (res.ok) fetchReport();
+                } catch (err) {
+                    console.error("Settlement failed:", err);
+                } finally {
+                    setIsSettling(false);
+                    setShowConfirm(false);
+                }
             }
-        }
-    });
-    setShowConfirm(true);
-  };
+        });
+        setShowConfirm(true);
+    };
 
-  const exportReportToPDF = () => {
-    if (!reportData) return;
-    const data = reportData;
-    try {
-        const doc = new jsPDF();
-        
-        // Premium Institutional Branding
-        doc.setFillColor(15, 23, 42); // slate-900
-        doc.rect(0, 0, 210, 45, 'F');
-        
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(24);
-        doc.setFont('helvetica', 'bold');
-        doc.text("PADDYMANAGER", 15, 20);
-        
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        doc.text("INSTITUTIONAL SETTLEMENT AUDIT", 15, 28);
-        doc.text(`SESSION ID: ${activeYear}-${String(data.machine.id).slice(-4).toUpperCase()}`, 15, 34);
-        
-        // Right Aligned Header Details
-        doc.setFontSize(10);
-        doc.text(`ASSET: ${data.machine.name.toUpperCase()}`, 195, 20, { align: 'right' });
-        doc.text(`MODEL: ${data.machine.model.toUpperCase()}`, 195, 26, { align: 'right' });
-        doc.text(`STATUS: ${data.machine.is_settled ? 'FINALIZED' : 'ACTIVE'}`, 195, 32, { align: 'right' });
+    const handleReopenMachine = () => {
+        setConfirmConfig({
+            title: 'Reopen Ledger',
+            description: 'Are you sure you want to REOPEN this ledger? This will allow new entries and remittances for this session.',
+            type: 'action',
+            action: async () => {
+                setIsSettling(true);
+                try {
+                    const tId = user?.trader_id || user?.id;
+                    let url = `${API_BASE_URL}/machines/${encodeURIComponent(machineId!)}/reopen?year=${activeYear}`;
+                    if (tId) url += `&traderId=${tId}`;
+                    const res = await fetch(url, { method: 'POST' });
+                    if (res.ok) fetchReport();
+                } catch (err) {
+                    console.error("Reopen failed:", err);
+                } finally {
+                    setIsSettling(false);
+                    setShowConfirm(false);
+                }
+            }
+        });
+        setShowConfirm(true);
+    };
 
-        // Financial Summary Section
-        doc.setTextColor(15, 23, 42);
-        doc.setFontSize(8);
-        doc.text("FINANCIAL SUMMARY OVERVIEW", 15, 55);
-        
-        // Draw 3 Summary Boxes
-        const drawBox = (x: number, y: number, label: string, val: string, color: [number, number, number]) => {
-            doc.setFillColor(248, 250, 252);
-            doc.roundedRect(x, y, 60, 25, 3, 3, 'F');
-            doc.setTextColor(100, 116, 139);
-            doc.setFontSize(7);
-            doc.text(label, x + 5, y + 8);
-            doc.setTextColor(...color);
-            doc.setFontSize(14);
+    const exportReportToPDF = () => {
+        if (!reportData) return;
+        const data = reportData;
+        try {
+            const doc = new jsPDF();
+
+            // Premium Institutional Branding
+            doc.setFillColor(15, 23, 42); // slate-900
+            doc.rect(0, 0, 210, 45, 'F');
+
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(24);
             doc.setFont('helvetica', 'bold');
-            doc.text(val, x + 5, y + 18);
-        };
+            doc.text("PADDYMANAGER", 15, 20);
 
-        drawBox(15, 60, "TOTAL GROSS YIELD", `INR ${data.totalEarnings.toLocaleString()}`, [16, 185, 129]);
-        drawBox(78, 60, "DEALER COMMISSION", `INR ${data.totalDealerCommission.toLocaleString()}`, [100, 116, 139]);
-        drawBox(141, 60, "CASH DISBURSEMENTS", `INR ${data.totalAdvances.toLocaleString()}`, [239, 68, 68]);
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'normal');
+            doc.text("INSTITUTIONAL SETTLEMENT AUDIT", 15, 28);
+            doc.text(`SESSION ID: ${activeYear}-${String(data.machine.id).slice(-4).toUpperCase()}`, 15, 34);
 
-        const totalMachineHours = data.logs.reduce((sum: number, l: any) => sum + (l.hours || 0), 0);
-        
-        // Draw Net Payable Box below
-        doc.setFillColor(15, 23, 42); // slate-900
-        doc.roundedRect(15, 87, 186, 15, 3, 3, 'F');
-        doc.setTextColor(255, 255, 255);
-        doc.setFontSize(8);
-        doc.text("FINAL NET SETTLEMENT PAYABLE", 20, 96);
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'bold');
-        doc.text(`INR ${data.netBalance.toLocaleString()}`, 195, 96, { align: 'right' });
+            // Right Aligned Header Details
+            doc.setFontSize(10);
+            doc.text(`ASSET: ${data.machine.name.toUpperCase()}`, 195, 20, { align: 'right' });
+            doc.text(`MODEL: ${data.machine.model.toUpperCase()}`, 195, 26, { align: 'right' });
+            doc.text(`STATUS: ${data.machine.is_settled ? 'FINALIZED' : 'ACTIVE'}`, 195, 32, { align: 'right' });
 
-        // Audit Trail Details
-        doc.setTextColor(15, 23, 42);
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'bold');
-        doc.text("OPERATIONAL DEPLOYMENT LEDGER (GROSS)", 15, 115);
+            // Financial Summary Section
+            doc.setTextColor(15, 23, 42);
+            doc.setFontSize(8);
+            doc.text("FINANCIAL SUMMARY OVERVIEW", 15, 55);
 
-        const logRows = data.logs.map((l: any) => [
-            new Date(l.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
-            `${l.farmer_name.toUpperCase()}\n[${(l.location || 'N/A').toUpperCase()}]`,
-            `INR ${l.rate}`,
-            `${l.hours} HR`,
-            `INR ${l.total_amount.toLocaleString()}`
-        ]);
+            // Draw 3 Summary Boxes
+            const drawBox = (x: number, y: number, label: string, val: string, color: [number, number, number]) => {
+                doc.setFillColor(248, 250, 252);
+                doc.roundedRect(x, y, 60, 25, 3, 3, 'F');
+                doc.setTextColor(100, 116, 139);
+                doc.setFontSize(7);
+                doc.text(label, x + 5, y + 8);
+                doc.setTextColor(...color);
+                doc.setFontSize(14);
+                doc.setFont('helvetica', 'bold');
+                doc.text(val, x + 5, y + 18);
+            };
 
-        autoTable(doc, {
-            startY: 120,
-            head: [['DATE', 'COUNTERPARTY & AREA/LOCATION', 'RATE', 'USAGE', 'SUBTOTAL']],
-            body: logRows,
-            theme: 'grid',
-            headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontSize: 8, fontStyle: 'bold' },
-            styles: { fontSize: 8, cellPadding: 3 }, // Reduced padding for density
-            columnStyles: {
-                0: { cellWidth: 25 },
-                1: { cellWidth: 75 },
-                2: { cellWidth: 25, halign: 'center' },
-                3: { cellWidth: 25, halign: 'center' },
-                4: { cellWidth: 40, halign: 'right' }
-            },
-            alternateRowStyles: { fillColor: [250, 250, 250] }, // Better zebra striping for long lists
-            margin: { top: 40, bottom: 20 }
-        });
+            drawBox(15, 60, "TOTAL GROSS YIELD", `INR ${data.totalEarnings.toLocaleString()}`, [16, 185, 129]);
+            drawBox(78, 60, "DEALER COMMISSION", `INR ${data.totalDealerCommission.toLocaleString()}`, [100, 116, 139]);
+            drawBox(141, 60, "CASH DISBURSEMENTS", `INR ${data.totalAdvances.toLocaleString()}`, [239, 68, 68]);
 
-        // Advances Section
-        const finalY = (doc as any).lastAutoTable.finalY + 15;
-        doc.text("SEASONAL DISBURSEMENTS & REMITTANCES", 15, finalY);
+            const totalMachineHours = data.logs.reduce((sum: number, l: any) => sum + (l.hours || 0), 0);
 
-        const advanceRows = data.advances.map((a: any) => [
-            new Date(a.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
-            (a.description || 'Institutional Withdrawal').toUpperCase(),
-            `INR ${a.amount.toLocaleString()}`
-        ]);
+            // Draw Net Payable Box below
+            doc.setFillColor(15, 23, 42); // slate-900
+            doc.roundedRect(15, 87, 186, 15, 3, 3, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(8);
+            doc.text("FINAL NET SETTLEMENT PAYABLE", 20, 96);
+            doc.setFontSize(12);
+            doc.setFont('helvetica', 'bold');
+            doc.text(`INR ${data.netBalance.toLocaleString()}`, 195, 96, { align: 'right' });
 
-        // Add Dealer Commission as a line item if > 0
-        if (data.totalDealerCommission > 0) {
-            advanceRows.push([
-                `S-${activeYear}`,
-                `SEASONAL DEALER COMMISSION (₹${data.commissionRate}/HR x ${totalMachineHours}H)`,
-                `INR ${data.totalDealerCommission.toLocaleString()}`
+            // Audit Trail Details
+            doc.setTextColor(15, 23, 42);
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'bold');
+            doc.text("OPERATIONAL DEPLOYMENT LEDGER (GROSS)", 15, 115);
+
+            const logRows = data.logs.map((l: any) => [
+                new Date(l.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
+                `${l.farmer_name.toUpperCase()}\n[${(l.location || 'N/A').toUpperCase()}]`,
+                `INR ${l.rate}`,
+                `${l.hours} HR`,
+                `INR ${l.total_amount.toLocaleString()}`
             ]);
-        }
 
-        autoTable(doc, {
-            startY: finalY + 5,
-            head: [['DATE', 'DISBURSEMENT DESCRIPTION', 'AMOUNT']],
-            body: advanceRows,
-            theme: 'grid',
-            headStyles: { fillColor: [239, 68, 68], textColor: [255, 255, 255], fontSize: 8, fontStyle: 'bold' },
-            styles: { fontSize: 8, cellPadding: 4 },
-            columnStyles: {
-                0: { cellWidth: 30 },
-                1: { cellWidth: 120 },
-                2: { cellWidth: 40, halign: 'right' }
+            autoTable(doc, {
+                startY: 120,
+                head: [['DATE', 'COUNTERPARTY & AREA/LOCATION', 'RATE', 'USAGE', 'SUBTOTAL']],
+                body: logRows,
+                theme: 'grid',
+                headStyles: { fillColor: [15, 23, 42], textColor: [255, 255, 255], fontSize: 8, fontStyle: 'bold' },
+                styles: { fontSize: 8, cellPadding: 3 }, // Reduced padding for density
+                columnStyles: {
+                    0: { cellWidth: 25 },
+                    1: { cellWidth: 75 },
+                    2: { cellWidth: 25, halign: 'center' },
+                    3: { cellWidth: 25, halign: 'center' },
+                    4: { cellWidth: 40, halign: 'right' }
+                },
+                alternateRowStyles: { fillColor: [250, 250, 250] }, // Better zebra striping for long lists
+                margin: { top: 40, bottom: 20 }
+            });
+
+            // Advances Section
+            const finalY = (doc as any).lastAutoTable.finalY + 15;
+            doc.text("SEASONAL DISBURSEMENTS & REMITTANCES", 15, finalY);
+
+            const advanceRows = data.advances.map((a: any) => [
+                new Date(a.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' }),
+                (a.description || 'Institutional Withdrawal').toUpperCase(),
+                `INR ${a.amount.toLocaleString()}`
+            ]);
+
+            // Add Dealer Commission as a line item if > 0
+            if (data.totalDealerCommission > 0) {
+                advanceRows.push([
+                    `S-${activeYear}`,
+                    `SEASONAL DEALER COMMISSION (₹${data.commissionRate}/HR x ${totalMachineHours}H)`,
+                    `INR ${data.totalDealerCommission.toLocaleString()}`
+                ]);
             }
-        });
 
-        // Seal and Timestamp
-        const lastY = (doc as any).lastAutoTable.finalY + 20;
-        doc.setFontSize(7);
-        doc.setTextColor(148, 163, 184);
-        doc.text(`AUDIT GENERATED: ${new Date().toLocaleString()}`, 15, lastY);
-        doc.text(`THIS IS A SYSTEM GENERATED INSTITUTIONAL DOCUMENT. NO PHYSICAL SIGNATURE IS REQUIRED.`, 15, lastY + 5);
+            autoTable(doc, {
+                startY: finalY + 5,
+                head: [['DATE', 'DISBURSEMENT DESCRIPTION', 'AMOUNT']],
+                body: advanceRows,
+                theme: 'grid',
+                headStyles: { fillColor: [239, 68, 68], textColor: [255, 255, 255], fontSize: 8, fontStyle: 'bold' },
+                styles: { fontSize: 8, cellPadding: 4 },
+                columnStyles: {
+                    0: { cellWidth: 30 },
+                    1: { cellWidth: 120 },
+                    2: { cellWidth: 40, halign: 'right' }
+                }
+            });
 
-        doc.save(`Settle_Audit_${data.machine.name}_${activeYear}.pdf`);
-    } catch (err) {
-        console.error("PDF generation failed:", err);
-        alert("Institutional Sync Error: PDF drafting failed.");
+            // Seal and Timestamp
+            const lastY = (doc as any).lastAutoTable.finalY + 20;
+            doc.setFontSize(7);
+            doc.setTextColor(148, 163, 184);
+            doc.text(`AUDIT GENERATED: ${new Date().toLocaleString()}`, 15, lastY);
+            doc.text(`THIS IS A SYSTEM GENERATED INSTITUTIONAL DOCUMENT. NO PHYSICAL SIGNATURE IS REQUIRED.`, 15, lastY + 5);
+
+            doc.save(`Settle_Audit_${data.machine.name}_${activeYear}.pdf`);
+        } catch (err) {
+            console.error("PDF generation failed:", err);
+            alert("Institutional Sync Error: PDF drafting failed.");
+        }
+    };
+
+    const handleRemittance = async () => {
+        if (!remittanceAmount) return;
+        try {
+            const d = new Date();
+            const localDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+            await fetch(`${API_BASE_URL}/machine-advances`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    machine_id: machineId,
+                    amount: parseInt(remittanceAmount),
+                    date: localDate,
+                    description: remittanceDesc,
+                    traderId: user?.trader_id || user?.id
+                })
+            });
+            setRemittanceAmount('');
+            setRemittanceDesc('');
+            fetchReport();
+        } catch (e) {
+            console.error(e);
+        }
+    };
+
+    if (loading || !reportData) {
+        return (
+            <div className="flex h-full flex-col bg-[#F8FAFC] dark:bg-[#0F172A] items-center justify-center p-6">
+                <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4" />
+                <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] animate-pulse">Syncing Settlement Data...</p>
+            </div>
+        );
     }
-  };
 
-  const handleRemittance = async () => {
-    if (!remittanceAmount) return;
-    try {
-        const d = new Date();
-        const localDate = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-        await fetch(`${API_BASE_URL}/machine-advances`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                machine_id: machineId, 
-                amount: parseInt(remittanceAmount), 
-                date: localDate, 
-                description: remittanceDesc,
-                traderId: user?.trader_id || user?.id 
-            })
-        });
-        setRemittanceAmount('');
-        setRemittanceDesc('');
-        fetchReport();
-    } catch (e) {
-        console.error(e);
-    }
-  };
-
-  if (loading || !reportData) {
     return (
-        <div className="flex h-full flex-col bg-[#F8FAFC] dark:bg-[#0F172A] items-center justify-center p-6">
-            <div className="w-12 h-12 border-4 border-primary border-t-transparent rounded-full animate-spin mb-4" />
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] animate-pulse">Syncing Settlement Data...</p>
-        </div>
-    );
-  }
+        <div className="relative flex h-full w-full flex-col bg-[#F8FAFC] dark:bg-[#0F172A] font-display text-slate-900 dark:text-slate-100 overflow-hidden">
+            {/* Header */}
+            <header className="sticky top-0 z-40 bg-white/90 dark:bg-[#0F172A]/90 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 shrink-0">
+                <div className="px-4 lg:px-6 py-3 lg:py-6 flex items-center justify-between">
+                    <div className="flex items-center gap-3 lg:gap-4">
+                        <button onClick={() => navigate(-1)} className="p-2.5 lg:p-3 bg-slate-100 dark:bg-white/5 rounded-xl lg:rounded-2xl hover:bg-slate-200 transition-colors">
+                            <ArrowLeft className="w-5 h-5 lg:w-6 lg:h-6" />
+                        </button>
+                        <div>
+                            <h1 className="text-lg lg:text-3xl font-black tracking-tighter uppercase leading-none">
+                                {reportData.machine.name} <span className="text-primary italic">Audit</span>
+                            </h1>
+                            <p className="text-[8px] lg:text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">
+                                {reportData.machine.model} • SESSION {activeYear}
+                            </p>
+                        </div>
+                    </div>
 
-  return (
-    <div className="relative flex h-full w-full flex-col bg-[#F8FAFC] dark:bg-[#0F172A] font-display text-slate-900 dark:text-slate-100 overflow-hidden">
-      {/* Header */}
-      <header className="sticky top-0 z-40 bg-white/90 dark:bg-[#0F172A]/90 backdrop-blur-xl border-b border-slate-200 dark:border-slate-800 shrink-0">
-        <div className="px-4 lg:px-6 py-3 lg:py-6 flex items-center justify-between">
-           <div className="flex items-center gap-3 lg:gap-4">
-              <button onClick={() => navigate(-1)} className="p-2.5 lg:p-3 bg-slate-100 dark:bg-white/5 rounded-xl lg:rounded-2xl hover:bg-slate-200 transition-colors">
-                <ArrowLeft className="w-5 h-5 lg:w-6 lg:h-6" />
-              </button>
-              <div>
-                 <h1 className="text-lg lg:text-3xl font-black tracking-tighter uppercase leading-none">
-                   {reportData.machine.name} <span className="text-primary italic">Audit</span>
-                 </h1>
-                 <p className="text-[8px] lg:text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5">
-                   {reportData.machine.model} • SESSION {activeYear}
-                 </p>
-              </div>
-           </div>
-           
-           <div className="flex items-center gap-3">
-              <button 
-                onClick={exportReportToPDF}
-                className="p-2.5 lg:p-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl lg:rounded-2xl hover:scale-105 transition-all shadow-lg"
-              >
-                <Printer className="w-5 h-5" />
-              </button>
-           </div>
-        </div>
-      </header>
-
-      <main className="flex-1 overflow-y-auto no-scrollbar p-4 lg:p-12 pb-32">
-         <div className="max-w-5xl mx-auto space-y-8 lg:space-y-12">
-            
-            {/* Financial Dashboard */}
-            <section className="grid grid-cols-2 md:grid-cols-4 gap-3 lg:gap-4">
-                <div className="p-4 lg:p-6 bg-white dark:bg-surface-dark rounded-[24px] lg:rounded-[40px] border border-slate-100 dark:border-white/5 shadow-sm">
-                    <p className="text-[7px] lg:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 lg:mb-4 opacity-60">Gross Yield</p>
-                    <span className="text-base lg:text-xl font-black text-slate-900 dark:text-white">₹{reportData.totalEarnings.toLocaleString()}</span>
+                    <div className="flex items-center gap-3">
+                        <button
+                            onClick={exportReportToPDF}
+                            className="p-2.5 lg:p-3 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-xl lg:rounded-2xl hover:scale-105 transition-all shadow-lg"
+                        >
+                            <Printer className="w-5 h-5" />
+                        </button>
+                    </div>
                 </div>
-                <div className="p-4 lg:p-6 bg-white dark:bg-surface-dark rounded-[24px] lg:rounded-[40px] border border-slate-100 dark:border-white/5 shadow-sm border-l-4 border-l-slate-400">
-                    <p className="text-[7px] lg:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 lg:mb-4 opacity-60">Commission</p>
-                    <span className="text-base lg:text-xl font-black text-slate-400">₹{reportData.totalDealerCommission.toLocaleString()}</span>
-                </div>
-                <div className="p-4 lg:p-6 bg-white dark:bg-surface-dark rounded-[24px] lg:rounded-[40px] border border-slate-100 dark:border-white/5 shadow-sm border-l-4 border-l-red-500">
-                    <p className="text-[7px] lg:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 lg:mb-4 opacity-60">Payouts</p>
-                    <span className="text-base lg:text-xl font-black text-red-500">₹{reportData.totalAdvances.toLocaleString()}</span>
-                </div>
-                <div className="p-4 lg:p-6 bg-primary rounded-[24px] lg:rounded-[40px] shadow-2xl shadow-primary/20">
-                    <p className="text-[7px] lg:text-[10px] font-black text-background-dark/60 uppercase tracking-widest mb-2 lg:mb-4">Total Dues</p>
-                    <span className="text-base lg:text-xl font-black text-background-dark">₹{reportData.netBalance.toLocaleString()}</span>
-                </div>
-            </section>
+            </header>
 
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-                
-                {/* Tables Column */}
-                <div className="lg:col-span-2 space-y-16">
-                    {/* Operational Ledger */}
-                    <section>
-                        <h4 className="text-[11px] font-black text-slate-900 dark:text-white uppercase tracking-[0.3em] mb-8 flex items-center gap-4">
-                            <TrendingUp className="w-5 h-5 text-emerald-500" /> Operational Deployment Ledger
-                        </h4>
-                        
-                        <div className="space-y-8">
-                            {groupedLogs.map((group) => (
-                                <div key={group.month} className="space-y-4">
-                                    <div 
-                                        onClick={() => navigate('/farmer-harvest-list', { state: { machineId: machineId, year: activeYear.toString(), month: group.monthId } })}
-                                        className="flex items-center justify-between px-4 py-2 bg-slate-100 dark:bg-white/5 rounded-2xl cursor-pointer hover:bg-primary/10 transition-colors group/header"
-                                    >
-                                        <div className="flex items-center gap-3">
-                                            <Calendar className="w-4 h-4 text-primary" />
-                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">{group.month}</span>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            <span className="text-[10px] font-black text-emerald-500">₹{group.total.toLocaleString()}</span>
-                                            <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover/header:translate-x-1 transition-transform" />
-                                        </div>
-                                    </div>
+            <main className="flex-1 overflow-y-auto no-scrollbar p-4 lg:p-12 pb-32">
+                <div className="max-w-5xl mx-auto space-y-8 lg:space-y-12">
 
-                                    <div className="bg-white dark:bg-surface-dark rounded-[32px] border border-slate-100 dark:border-white/5 overflow-hidden shadow-sm">
-                                        {/* Desktop Table */}
-                                        <table className="w-full hidden md:table">
-                                            <thead>
-                                                <tr className="text-left bg-slate-50 dark:bg-white/5 border-b border-slate-100 dark:border-white/5">
-                                                    <th className="p-6 text-[10px] font-black uppercase tracking-widest text-slate-400">Date</th>
-                                                    <th className="p-6 text-[10px] font-black uppercase tracking-widest text-slate-400">Farmer</th>
-                                                    <th className="p-6 text-[10px] font-black uppercase tracking-widest text-slate-400 text-center">Usage</th>
-                                                    <th className="p-6 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Subtotal</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody className="divide-y divide-slate-50 dark:divide-white/5">
-                                                {group.logs.map((l: any) => (
-                                                    <tr 
-                                                        key={l.id} 
-                                                        onClick={() => navigate('/farmer-harvest-list', { state: { machineId: machineId, year: activeYear.toString(), month: group.monthId } })}
-                                                        className="group hover:bg-slate-50/50 dark:hover:bg-white/5 transition-colors border-l-4 border-l-transparent hover:border-l-primary cursor-pointer"
-                                                    >
-                                                        <td className="p-4 px-6 md:p-5 md:px-8">
-                                                            <p className="text-[10px] md:text-[11px] font-black text-slate-900 dark:text-white uppercase">
-                                                                {new Date(l.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
-                                                            </p>
-                                                        </td>
-                                                        <td className="p-4 px-6 md:p-5 md:px-8">
-                                                            <div className="flex flex-col gap-0.5">
-                                                                <p className="text-[10px] font-bold text-slate-500 uppercase tracking-tight line-clamp-1">{l.farmer_name}</p>
-                                                                <div className="flex items-center gap-2">
-                                                                    <p className="text-[8px] font-black text-slate-300 uppercase">₹{l.rate}/Hr</p>
-                                                                    {l.location && (
-                                                                        <span className="text-[7px] font-black text-primary uppercase bg-primary/5 px-1.5 py-0.5 rounded-full border border-primary/10">
-                                                                            {l.location}
-                                                                        </span>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        </td>
-                                                        <td className="p-4 px-6 md:p-5 md:px-8 text-center">
-                                                            <span className="px-3 py-1 bg-slate-100 dark:bg-white/10 rounded-full text-[10px] font-black text-slate-500 uppercase">
-                                                                {l.hours} HR
-                                                            </span>
-                                                        </td>
-                                                        <td className="p-4 px-6 md:p-5 md:px-8 text-right font-black text-emerald-600">
-                                                            ₹{l.total_amount.toLocaleString()}
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
+                    {/* Financial Dashboard */}
+                    <section className="grid grid-cols-2 md:grid-cols-4 gap-3 lg:gap-4">
+                        <div className="p-4 lg:p-6 bg-white dark:bg-surface-dark rounded-[24px] lg:rounded-[40px] border border-slate-100 dark:border-white/5 shadow-sm">
+                            <p className="text-[7px] lg:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 lg:mb-4 opacity-60">Gross Yield</p>
+                            <span className="text-base lg:text-xl font-black text-slate-900 dark:text-white">₹{reportData.totalEarnings.toLocaleString()}</span>
+                        </div>
+                        <div className="p-4 lg:p-6 bg-white dark:bg-surface-dark rounded-[24px] lg:rounded-[40px] border border-slate-100 dark:border-white/5 shadow-sm border-l-4 border-l-slate-400">
+                            <p className="text-[7px] lg:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 lg:mb-4 opacity-60">Commission</p>
+                            <span className="text-base lg:text-xl font-black text-slate-400">₹{reportData.totalDealerCommission.toLocaleString()}</span>
+                        </div>
+                        <div className="p-4 lg:p-6 bg-white dark:bg-surface-dark rounded-[24px] lg:rounded-[40px] border border-slate-100 dark:border-white/5 shadow-sm border-l-4 border-l-red-500">
+                            <p className="text-[7px] lg:text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 lg:mb-4 opacity-60">Payouts</p>
+                            <span className="text-base lg:text-xl font-black text-red-500">₹{reportData.totalAdvances.toLocaleString()}</span>
+                        </div>
+                        <div className="p-4 lg:p-6 bg-primary rounded-[24px] lg:rounded-[40px] shadow-2xl shadow-primary/20">
+                            <p className="text-[7px] lg:text-[10px] font-black text-background-dark/60 uppercase tracking-widest mb-2 lg:mb-4">Total Dues</p>
+                            <span className="text-base lg:text-xl font-black text-background-dark">₹{reportData.netBalance.toLocaleString()}</span>
+                        </div>
+                    </section>
 
-                                        {/* Mobile List View */}
-                                        <div className="md:hidden divide-y divide-slate-50 dark:divide-white/5">
-                                            {group.logs.map((l: any) => (
-                                                <div 
-                                                    key={l.id} 
-                                                    onClick={() => navigate('/farmer-harvest-list', { state: { machineId: machineId, year: activeYear.toString(), month: group.monthId } })}
-                                                    className="p-5 active:bg-slate-50 dark:active:bg-white/5 transition-colors cursor-pointer"
-                                                >
-                                                    <div className="flex justify-between items-start mb-2">
-                                                        <div>
-                                                            <p className="text-[8px] font-black text-slate-300 uppercase mb-0.5">{new Date(l.date).toLocaleDateString('en-IN', { day: '2-digit', month: 'long' })}</p>
-                                                            <p className="text-xs font-black text-slate-900 dark:text-white uppercase truncate">{l.farmer_name}</p>
-                                                        </div>
-                                                        <p className="text-sm font-black text-emerald-500">₹{l.total_amount.toLocaleString()}</p>
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <span className="px-2 py-0.5 bg-slate-100 dark:bg-white/5 rounded-md text-[8px] font-black text-slate-500 uppercase">{l.hours} HR</span>
-                                                        <span className="text-[8px] font-black text-slate-300 uppercase">@ ₹{l.rate}</span>
-                                                        {l.location && (
-                                                            <span className="text-[7px] font-black text-primary uppercase bg-primary/5 px-1.5 py-0.5 rounded-full border border-primary/10">
-                                                                {l.location}
-                                                            </span>
-                                                        )}
-                                                    </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
+
+                        {/* Tables Column */}
+                        <div className="lg:col-span-2 space-y-16">
+                            {/* Operational Ledger */}
+                            <section>
+                                <h4 className="text-[11px] font-black text-slate-900 dark:text-white uppercase tracking-[0.3em] mb-8 flex items-center gap-4">
+                                    <TrendingUp className="w-5 h-5 text-emerald-500" /> Operational Deployment Ledger
+                                </h4>
+
+                                <div className="space-y-8">
+                                    {groupedLogs.map((group) => (
+                                        <div key={group.month} className="space-y-4">
+                                            <div
+                                                onClick={() => navigate('/farmer-harvest-list', { state: { machineId: machineId, year: activeYear.toString(), month: group.monthId } })}
+                                                className="flex items-center justify-between px-4 py-2 bg-slate-100 dark:bg-white/5 rounded-2xl cursor-pointer hover:bg-primary/10 transition-colors group/header"
+                                            >
+                                                <div className="flex items-center gap-3">
+                                                    <Calendar className="w-4 h-4 text-primary" />
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">{group.month}</span>
                                                 </div>
-                                            ))}
+                                                <div className="flex items-center gap-3">
+                                                    <span className="text-[10px] font-black text-emerald-500">₹{group.total.toLocaleString()}</span>
+                                                    <ChevronRight className="w-3.5 h-3.5 text-slate-400 group-hover/header:translate-x-1 transition-transform" />
+                                                </div>
+                                            </div>
                                         </div>
-                                    </div>
-                                </div>
-                            ))}
+                                    ))}
 
-                            {groupedLogs.length === 0 && (
-                                <div className="py-20 text-center opacity-40 bg-white dark:bg-surface-dark rounded-[32px] border border-slate-100 dark:border-white/5">
-                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No Activity Registered</p>
+                                    {groupedLogs.length === 0 && (
+                                        <div className="py-20 text-center opacity-40 bg-white dark:bg-surface-dark rounded-[32px] border border-slate-100 dark:border-white/5">
+                                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No Activity Registered</p>
+                                        </div>
+                                    )}
                                 </div>
-                            )}
+                            </section>
+
+                            {/* Disbursement History */}
+                            <section>
+                                <h4 className="text-[11px] font-black text-slate-900 dark:text-white uppercase tracking-[0.3em] mb-8 flex items-center gap-4">
+                                    <History className="w-5 h-5 text-red-500" /> Disbursement & Remittance History
+                                    <div className="h-px bg-slate-100 dark:bg-white/10 flex-1" />
+                                </h4>
+                                <div className="space-y-3 lg:space-y-4">
+                                    {reportData.advances.map((a: any) => (
+                                        <div key={a.id} className="p-4 lg:p-6 bg-white dark:bg-surface-dark rounded-[24px] lg:rounded-[32px] border border-slate-100 dark:border-white/5 flex justify-between items-center group shadow-sm transition-all hover:border-red-500/20">
+                                            <div className="flex items-center gap-4 lg:gap-6">
+                                                <div className="w-10 h-10 lg:w-12 lg:h-12 bg-red-500/10 rounded-xl lg:rounded-2xl flex items-center justify-center text-red-500"><Banknote className="w-5 h-5 lg:w-6 lg:h-6" /></div>
+                                                <div>
+                                                    <p className="text-xs lg:text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight truncate max-w-[120px] sm:max-w-none">
+                                                        {a.description || 'Institutional Withdrawal'}
+                                                    </p>
+                                                    <p className="text-[8px] lg:text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5 lg:mt-1">
+                                                        {new Date(a.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <p className="text-base lg:text-xl font-black text-red-500 tracking-tighter">-₹{a.amount.toLocaleString()}</p>
+                                        </div>
+                                    ))}
+                                    {reportData.advances.length === 0 && (
+                                        <div className="py-12 text-center border-2 border-dashed border-slate-100 dark:border-white/5 rounded-[32px]">
+                                            <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">No Remittances Found</p>
+                                        </div>
+                                    )}
+                                </div>
+                            </section>
                         </div>
-                    </section>
 
-                    {/* Disbursement History */}
-                    <section>
-                         <h4 className="text-[11px] font-black text-slate-900 dark:text-white uppercase tracking-[0.3em] mb-8 flex items-center gap-4">
-                            <History className="w-5 h-5 text-red-500" /> Disbursement & Remittance History
-                            <div className="h-px bg-slate-100 dark:bg-white/10 flex-1" />
-                        </h4>
-                        <div className="space-y-3 lg:space-y-4">
-                            {reportData.advances.map((a: any) => (
-                                <div key={a.id} className="p-4 lg:p-6 bg-white dark:bg-surface-dark rounded-[24px] lg:rounded-[32px] border border-slate-100 dark:border-white/5 flex justify-between items-center group shadow-sm transition-all hover:border-red-500/20">
-                                    <div className="flex items-center gap-4 lg:gap-6">
-                                        <div className="w-10 h-10 lg:w-12 lg:h-12 bg-red-500/10 rounded-xl lg:rounded-2xl flex items-center justify-center text-red-500"><Banknote className="w-5 h-5 lg:w-6 lg:h-6" /></div>
+                        {/* Actions Column */}
+                        <div className="space-y-12">
+                            {/* Add Remittance Card */}
+                            {!reportData.machine.is_settled && (
+                                <section className="bg-white dark:bg-surface-dark p-10 rounded-[48px] border border-slate-100 dark:border-white/5 shadow-xl shadow-slate-200/50 dark:shadow-none">
+                                    <h4 className="text-2xl font-black uppercase tracking-tighter mb-2">New <span className="text-primary italic">Remittance</span></h4>
+                                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-10">Financial Payout Entry</p>
+
+                                    <div className="space-y-6">
                                         <div>
-                                            <p className="text-xs lg:text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight truncate max-w-[120px] sm:max-w-none">
-                                                {a.description || 'Institutional Withdrawal'}
-                                            </p>
-                                            <p className="text-[8px] lg:text-[10px] font-black text-slate-400 uppercase tracking-widest mt-0.5 lg:mt-1">
-                                                {new Date(a.date).toLocaleDateString('en-IN', { day: 'numeric', month: 'short' })}
-                                            </p>
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block px-1">Remittance Amount (₹)</label>
+                                            <div className="relative">
+                                                <IndianRupee className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-emerald-500" />
+                                                <input
+                                                    type="number"
+                                                    value={remittanceAmount}
+                                                    onChange={(e) => setRemittanceAmount(e.target.value)}
+                                                    placeholder="0"
+                                                    className="w-full h-16 pl-14 pr-6 bg-slate-50 dark:bg-slate-900/50 border-2 border-slate-50 dark:border-white/5 rounded-[24px] text-2xl font-black text-slate-900 dark:text-white focus:border-emerald-500 outline-none transition-all"
+                                                />
+                                            </div>
                                         </div>
+
+                                        <div>
+                                            <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block px-1">Description / Purpose</label>
+                                            <textarea
+                                                value={remittanceDesc}
+                                                onChange={(e) => setRemittanceDesc(e.target.value)}
+                                                placeholder="Reason for payment..."
+                                                className="w-full h-32 p-6 bg-slate-50 dark:bg-slate-900/50 border-2 border-slate-50 dark:border-white/5 rounded-[32px] text-sm font-bold text-slate-900 dark:text-white focus:border-primary outline-none transition-all resize-none"
+                                            />
+                                        </div>
+
+                                        <button
+                                            onClick={handleRemittance}
+                                            className="w-full py-6 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-[28px] text-[11px] font-black uppercase tracking-[0.4em] shadow-2xl active:scale-95 transition-all"
+                                        >
+                                            Log Remittance
+                                        </button>
                                     </div>
-                                    <p className="text-base lg:text-xl font-black text-red-500 tracking-tighter">-₹{a.amount.toLocaleString()}</p>
-                                </div>
-                            ))}
-                            {reportData.advances.length === 0 && (
-                                <div className="py-12 text-center border-2 border-dashed border-slate-100 dark:border-white/5 rounded-[32px]">
-                                    <p className="text-[10px] font-black text-slate-300 uppercase tracking-widest">No Remittances Found</p>
-                                </div>
+                                </section>
                             )}
+
+                            {/* Finalize/Reopen Action */}
+                            <section className="bg-slate-50 dark:bg-white/5 p-10 rounded-[48px] border border-slate-100 dark:border-white/5 text-center">
+                                {reportData.machine.is_settled ? (
+                                    <>
+                                        <div className="w-16 h-16 bg-emerald-500 text-white rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-emerald-500/20">
+                                            <Lock className="w-8 h-8" />
+                                        </div>
+                                        <h4 className="text-xl font-black uppercase tracking-tighter mb-2">Audit <span className="text-emerald-500 italic">Locked</span></h4>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-8 leading-relaxed">
+                                            Settled on {new Date(reportData.machine.settled_at).toLocaleDateString()}
+                                        </p>
+                                        <button
+                                            onClick={handleReopenMachine}
+                                            className="w-full py-5 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-[24px] text-[10px] font-black uppercase tracking-widest shadow-md hover:bg-slate-50 transition-all active:scale-95"
+                                        >
+                                            Reopen For Edits
+                                        </button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className="w-16 h-16 bg-primary/10 text-primary rounded-3xl flex items-center justify-center mx-auto mb-6">
+                                            <AlertCircle className="w-8 h-8" />
+                                        </div>
+                                        <h4 className="text-xl font-black uppercase tracking-tighter mb-2">Finalize <span className="text-primary italic">Session</span></h4>
+                                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-8 leading-relaxed px-4">
+                                            Finalizing locks the operational ledger for this session.
+                                        </p>
+                                        <button
+                                            onClick={handleSettleMachine}
+                                            className="w-full py-5 bg-emerald-600 text-white rounded-[24px] text-[10px] font-black uppercase tracking-widest shadow-xl shadow-emerald-600/20 active:scale-95 transition-all"
+                                        >
+                                            Complete Settlement
+                                        </button>
+                                    </>
+                                )}
+                            </section>
                         </div>
-                    </section>
+                    </div>
                 </div>
+            </main>
 
-                {/* Actions Column */}
-                <div className="space-y-12">
-                     {/* Add Remittance Card */}
-                    {!reportData.machine.is_settled && (
-                        <section className="bg-white dark:bg-surface-dark p-10 rounded-[48px] border border-slate-100 dark:border-white/5 shadow-xl shadow-slate-200/50 dark:shadow-none">
-                            <h4 className="text-2xl font-black uppercase tracking-tighter mb-2">New <span className="text-primary italic">Remittance</span></h4>
-                            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-10">Financial Payout Entry</p>
-                            
-                            <div className="space-y-6">
-                                <div>
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block px-1">Remittance Amount (₹)</label>
-                                    <div className="relative">
-                                        <IndianRupee className="absolute left-6 top-1/2 -translate-y-1/2 w-5 h-5 text-emerald-500" />
-                                        <input 
-                                            type="number" 
-                                            value={remittanceAmount}
-                                            onChange={(e) => setRemittanceAmount(e.target.value)}
-                                            placeholder="0" 
-                                            className="w-full h-16 pl-14 pr-6 bg-slate-50 dark:bg-slate-900/50 border-2 border-slate-50 dark:border-white/5 rounded-[24px] text-2xl font-black text-slate-900 dark:text-white focus:border-emerald-500 outline-none transition-all" 
-                                        />
-                                    </div>
+            {/* Confirmation Modal */}
+            <AnimatePresence>
+                {showConfirm && (
+                    <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-[#0F172A]/80 backdrop-blur-md">
+                        <motion.div
+                            initial={{ scale: 0.9, opacity: 0, y: 30 }}
+                            animate={{ scale: 1, opacity: 1, y: 0 }}
+                            exit={{ scale: 0.9, opacity: 0, y: 30 }}
+                            className="bg-white dark:bg-[#1E293B] w-full max-w-sm rounded-[42px] p-10 shadow-2xl relative border border-white/10"
+                        >
+                            <div className="flex flex-col items-center text-center mb-10">
+                                <div className={`w-20 h-20 rounded-[32px] flex items-center justify-center mb-8 ${confirmConfig.type === 'critical' ? 'bg-red-500/10 text-red-500 shadow-lg shadow-red-500/5' : 'bg-primary/10 text-primary shadow-lg shadow-primary/5'}`}>
+                                    <AlertCircle className="w-10 h-10" />
                                 </div>
-                                
-                                <div>
-                                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-3 block px-1">Description / Purpose</label>
-                                    <textarea 
-                                        value={remittanceDesc}
-                                        onChange={(e) => setRemittanceDesc(e.target.value)}
-                                        placeholder="Reason for payment..." 
-                                        className="w-full h-32 p-6 bg-slate-50 dark:bg-slate-900/50 border-2 border-slate-50 dark:border-white/5 rounded-[32px] text-sm font-bold text-slate-900 dark:text-white focus:border-primary outline-none transition-all resize-none" 
-                                    />
-                                </div>
+                                <h3 className="text-3xl font-black uppercase tracking-tighter leading-none mb-4">
+                                    {confirmConfig.title.split(' ')[0]} <span className={confirmConfig.type === 'critical' ? 'text-red-500' : 'text-primary'}>{confirmConfig.title.split(' ').slice(1).join(' ')}</span>
+                                </h3>
+                                <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
+                                    {confirmConfig.description}
+                                </p>
+                            </div>
 
-                                <button 
-                                    onClick={handleRemittance}
-                                    className="w-full py-6 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-[28px] text-[11px] font-black uppercase tracking-[0.4em] shadow-2xl active:scale-95 transition-all"
+                            <div className="grid grid-cols-1 gap-4">
+                                <button
+                                    onClick={confirmConfig.action}
+                                    disabled={isSettling}
+                                    className={`py-6 rounded-[28px] text-[11px] font-black uppercase tracking-[0.3em] shadow-2xl active:scale-95 transition-all flex items-center justify-center ${confirmConfig.type === 'critical'
+                                        ? 'bg-red-500 text-white shadow-red-500/20'
+                                        : 'bg-primary text-background-dark shadow-primary/20'
+                                        }`}
                                 >
-                                    Log Remittance
+                                    {isSettling ? (
+                                        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                    ) : (
+                                        'Execute Protocol'
+                                    )}
+                                </button>
+                                <button
+                                    onClick={() => setShowConfirm(false)}
+                                    className="py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-900 transition-all"
+                                >
+                                    Abort Operation
                                 </button>
                             </div>
-                        </section>
-                    )}
-
-                    {/* Finalize/Reopen Action */}
-                    <section className="bg-slate-50 dark:bg-white/5 p-10 rounded-[48px] border border-slate-100 dark:border-white/5 text-center">
-                        {reportData.machine.is_settled ? (
-                            <>
-                                <div className="w-16 h-16 bg-emerald-500 text-white rounded-3xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-emerald-500/20">
-                                    <Lock className="w-8 h-8" />
-                                </div>
-                                <h4 className="text-xl font-black uppercase tracking-tighter mb-2">Audit <span className="text-emerald-500 italic">Locked</span></h4>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-8 leading-relaxed">
-                                    Settled on {new Date(reportData.machine.settled_at).toLocaleDateString()}
-                                </p>
-                                <button 
-                                  onClick={handleReopenMachine}
-                                  className="w-full py-5 bg-white dark:bg-slate-800 text-slate-900 dark:text-white rounded-[24px] text-[10px] font-black uppercase tracking-widest shadow-md hover:bg-slate-50 transition-all active:scale-95"
-                                >
-                                    Reopen For Edits
-                                </button>
-                            </>
-                        ) : (
-                            <>
-                                <div className="w-16 h-16 bg-primary/10 text-primary rounded-3xl flex items-center justify-center mx-auto mb-6">
-                                    <AlertCircle className="w-8 h-8" />
-                                </div>
-                                <h4 className="text-xl font-black uppercase tracking-tighter mb-2">Finalize <span className="text-primary italic">Session</span></h4>
-                                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-8 leading-relaxed px-4">
-                                    Finalizing locks the operational ledger for this session.
-                                </p>
-                                <button 
-                                  onClick={handleSettleMachine}
-                                  className="w-full py-5 bg-emerald-600 text-white rounded-[24px] text-[10px] font-black uppercase tracking-widest shadow-xl shadow-emerald-600/20 active:scale-95 transition-all"
-                                >
-                                    Complete Settlement
-                                </button>
-                            </>
-                        )}
-                    </section>
-                </div>
-            </div>
-         </div>
-      </main>
-
-      {/* Confirmation Modal */}
-      <AnimatePresence>
-        {showConfirm && (
-          <div className="fixed inset-0 z-[110] flex items-center justify-center p-6 bg-[#0F172A]/80 backdrop-blur-md">
-            <motion.div 
-               initial={{ scale: 0.9, opacity: 0, y: 30 }} 
-               animate={{ scale: 1, opacity: 1, y: 0 }} 
-               exit={{ scale: 0.9, opacity: 0, y: 30 }} 
-               className="bg-white dark:bg-[#1E293B] w-full max-w-sm rounded-[42px] p-10 shadow-2xl relative border border-white/10"
-            >
-                <div className="flex flex-col items-center text-center mb-10">
-                    <div className={`w-20 h-20 rounded-[32px] flex items-center justify-center mb-8 ${confirmConfig.type === 'critical' ? 'bg-red-500/10 text-red-500 shadow-lg shadow-red-500/5' : 'bg-primary/10 text-primary shadow-lg shadow-primary/5'}`}>
-                        <AlertCircle className="w-10 h-10" />
+                        </motion.div>
                     </div>
-                    <h3 className="text-3xl font-black uppercase tracking-tighter leading-none mb-4">
-                        {confirmConfig.title.split(' ')[0]} <span className={confirmConfig.type === 'critical' ? 'text-red-500' : 'text-primary'}>{confirmConfig.title.split(' ').slice(1).join(' ')}</span>
-                    </h3>
-                    <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest leading-relaxed">
-                        {confirmConfig.description}
-                    </p>
-                </div>
-
-                <div className="grid grid-cols-1 gap-4">
-                    <button 
-                        onClick={confirmConfig.action}
-                        disabled={isSettling}
-                        className={`py-6 rounded-[28px] text-[11px] font-black uppercase tracking-[0.3em] shadow-2xl active:scale-95 transition-all flex items-center justify-center ${
-                            confirmConfig.type === 'critical' 
-                            ? 'bg-red-500 text-white shadow-red-500/20' 
-                            : 'bg-primary text-background-dark shadow-primary/20'
-                        }`}
-                    >
-                        {isSettling ? (
-                             <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                        ) : (
-                            'Execute Protocol'
-                        )}
-                    </button>
-                    <button 
-                        onClick={() => setShowConfirm(false)}
-                        className="py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-900 transition-all"
-                    >
-                        Abort Operation
-                    </button>
-                </div>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
-    </div>
-  );
+                )}
+            </AnimatePresence>
+        </div>
+    );
 }

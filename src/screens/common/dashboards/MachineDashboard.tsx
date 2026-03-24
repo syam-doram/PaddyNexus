@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'motion/react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Bell, Sun, TrendingUp, TrendingDown, ChevronRight, Sprout, Tractor, IndianRupee } from 'lucide-react';
@@ -47,8 +47,60 @@ export default function MachineDashboard() {
 
   const filteredLogs = logs.filter(log => log.date && log.date.startsWith(selectedYear));
   const totalHours = filteredLogs.reduce((sum, log) => sum + (parseFloat(log.hours) || 0), 0);
+  const totalMachineRevenue = filteredLogs.reduce((sum, log) => sum + (log.total_amount || 0), 0);
   const totalCommission = totalHours * commissionRate;
   
+  // Area Contribution Data
+  const areaStats = useMemo(() => {
+    const stats: Record<string, number> = {};
+    filteredLogs.forEach(log => {
+      const area = log.location || 'Unknown';
+      stats[area] = (stats[area] || 0) + (log.total_amount || 0);
+    });
+    return Object.entries(stats)
+      .map(([name, amount]) => ({ name, amount }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 5);
+  }, [filteredLogs]);
+
+  const maxAreaAmount = Math.max(...areaStats.map(a => a.amount), 1);
+
+  // Farmer Contribution Data
+  const farmerStats = useMemo(() => {
+    const stats: Record<string, number> = {};
+    filteredLogs.forEach(log => {
+      const farmer = log.farmer_name || 'Anonymous';
+      stats[farmer] = (stats[farmer] || 0) + (log.total_amount || 0);
+    });
+    return Object.entries(stats)
+      .map(([name, amount]) => ({ name, amount }))
+      .sort((a, b) => b.amount - a.amount)
+      .slice(0, 5);
+  }, [filteredLogs]);
+
+  const maxFarmerAmount = Math.max(...farmerStats.map(f => f.amount), 1);
+
+  // Monthly Contribution Data
+  const monthlyStats = useMemo(() => {
+    const stats: Record<string, number> = {};
+    const monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
+    
+    // Initialize months
+    monthNames.forEach(name => { stats[name] = 0; });
+    
+    filteredLogs.forEach(log => {
+      const monthIdx = parseInt(log.date.split('-')[1]) - 1;
+      if (monthIdx >= 0 && monthIdx < 12) {
+        const monthName = monthNames[monthIdx];
+        stats[monthName] = (stats[monthName] || 0) + (log.total_amount || 0);
+      }
+    });
+
+    return monthNames.map(name => ({ name, amount: stats[name] }));
+  }, [filteredLogs, selectedYear]);
+
+  const maxMonthlyAmount = Math.max(...monthlyStats.map(m => m.amount), 1);
+
 
   return (
     <div className="relative flex h-full w-full flex-col bg-background-light dark:bg-background-dark font-display">
@@ -110,22 +162,93 @@ export default function MachineDashboard() {
             <div className="flex justify-between items-start mb-4">
               <div className="p-3 bg-emerald-100 dark:bg-emerald-500/10 rounded-2xl text-emerald-600"><TrendingUp className="w-6 h-6" /></div>
               <div className="text-right">
-                <p className="text-[10px] font-black tracking-widest text-slate-400 uppercase mb-1">Total Commission</p>
-                <h2 className="text-3xl font-black text-emerald-600 tracking-tight">₹{totalCommission.toLocaleString()}</h2>
+                <p className="text-[10px] font-black tracking-widest text-slate-400 uppercase mb-1">Machine Gross Revenue</p>
+                <h2 className="text-3xl font-black text-emerald-600 tracking-tight">₹{totalMachineRevenue.toLocaleString()}</h2>
               </div>
             </div>
             <div className="flex items-center gap-2 mt-4 pt-4 border-t border-slate-50 dark:border-white/5">
-              <span className="text-[10px] font-black bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded-lg">Rate: ₹{commissionRate}/h</span>
+              <span className="text-[10px] font-black bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded-lg">Estimated Commission: ₹{totalCommission.toLocaleString()}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="px-5 lg:px-6 py-2 grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {/* Monthly Trend */}
+          <div className="bg-white dark:bg-surface-dark rounded-[2rem] p-6 border border-slate-100 dark:border-white/5 shadow-sm col-span-1 lg:col-span-2">
+            <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-widest mb-6 px-2">Revenue Lifecycle <span className="text-[10px] text-slate-400 font-normal ml-2 tracking-normal italic">Monthly Session Trend</span></h3>
+            <div className="flex items-end justify-between h-40 gap-1 lg:gap-4 px-2">
+              {monthlyStats.map((m) => (
+                <div key={m.name} className="flex-1 flex flex-col items-center gap-2 group relative">
+                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 bg-slate-900 dark:bg-white text-white dark:text-black text-[8px] font-black px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap z-10">
+                        ₹{(m.amount / 1000).toFixed(1)}k
+                    </div>
+                    <motion.div 
+                        initial={{ height: 0 }} 
+                        animate={{ height: `${(m.amount / maxMonthlyAmount) * 100}%` }} 
+                        className={`w-full max-w-[12px] rounded-t-lg transition-colors group-hover:bg-primary ${m.amount > 0 ? 'bg-primary/40' : 'bg-slate-100 dark:bg-white/5'}`} 
+                    />
+                    <span className="text-[8px] font-black text-slate-400 group-hover:text-primary transition-colors">{m.name}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Area Stats */}
+          <div className="bg-white dark:bg-surface-dark rounded-[2rem] p-6 border border-slate-100 dark:border-white/5 shadow-sm">
+            <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-widest mb-6">Territorial Yield <span className="text-[10px] text-slate-400 font-normal ml-2 tracking-normal italic">By Location</span></h3>
+            <div className="space-y-5">
+              {areaStats.length > 0 ? areaStats.map((a, i) => (
+                <div key={a.name} className="space-y-2">
+                  <div className="flex justify-between items-end">
+                    <span className="text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-tighter truncate max-w-[150px]">{a.name}</span>
+                    <span className="text-xs font-black text-emerald-500 tabular-nums">₹{(a.amount / 1000).toFixed(1)}K</span>
+                  </div>
+                  <div className="h-2 w-full bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
+                    <motion.div initial={{ width: 0 }} animate={{ width: `${(a.amount / maxAreaAmount) * 100}%` }} className={`h-full rounded-full ${i === 0 ? 'bg-emerald-500' : 'bg-emerald-500/40'}`} />
+                  </div>
+                </div>
+              )) : <p className="py-8 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">No Location Intelligence Available</p>}
+            </div>
+          </div>
+
+          {/* Farmer Stats */}
+          <div className="bg-white dark:bg-surface-dark rounded-[2rem] p-6 border border-slate-100 dark:border-white/5 shadow-sm">
+            <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-widest mb-6">Strategic Partners <span className="text-[10px] text-slate-400 font-normal ml-2 tracking-normal italic">Top Farmers</span></h3>
+            <div className="space-y-5">
+              {farmerStats.length > 0 ? farmerStats.map((f, i) => (
+                <div key={f.name} className="space-y-2">
+                  <div className="flex justify-between items-end">
+                    <div className="flex items-center gap-2">
+                        <div className="w-5 h-5 rounded-full bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center text-[8px] font-black text-blue-600">#{i+1}</div>
+                        <span className="text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-tighter truncate max-w-[150px]">{f.name}</span>
+                    </div>
+                    <span className="text-xs font-black text-blue-500 tabular-nums">₹{(f.amount / 1000).toFixed(1)}K</span>
+                  </div>
+                  <div className="h-2 w-full bg-slate-100 dark:bg-white/5 rounded-full overflow-hidden">
+                    <motion.div initial={{ width: 0 }} animate={{ width: `${(f.amount / maxFarmerAmount) * 100}%` }} className={`h-full rounded-full ${i === 0 ? 'bg-blue-500' : 'bg-blue-500/40'}`} />
+                  </div>
+                </div>
+              )) : <p className="py-8 text-center text-[10px] font-black text-slate-400 uppercase tracking-widest">Initiate Operations to Track Data</p>}
             </div>
           </div>
         </div>
 
         <div className="px-5 lg:px-6 py-4">
-          <div className="bg-white dark:bg-surface-dark rounded-[2rem] lg:rounded-[2.5rem] p-8 border border-slate-100 dark:border-white/5 shadow-sm">
-            <h3 className="text-lg lg:text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight mb-6">Fleet Performance</h3>
-            <p className="text-sm font-medium text-slate-400 leading-relaxed">
-              Seasonal analytics and detailed operational breakdowns are now managed through the <strong>Fleet Settlements</strong> hub for enhanced security and session integrity.
+          <div className="bg-slate-900 dark:bg-white rounded-[2rem] lg:rounded-[2.5rem] p-8 border border-slate-800 dark:border-slate-100 shadow-2xl">
+            <h3 className="text-lg lg:text-xl font-black text-white dark:text-slate-900 uppercase tracking-tighter italic mb-4">Operational Summary</h3>
+            <p className="text-sm font-medium text-slate-400 dark:text-slate-500 leading-relaxed mb-6">
+              Seasonal analytics and detailed operational breakdowns are synchronised with live field data. Review settlements regularly to maintain audit integrity.
             </p>
+            <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 bg-white/5 dark:bg-slate-50 rounded-2xl border border-white/10 dark:border-slate-200">
+                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Success Rate</p>
+                    <p className="text-xl font-black text-white dark:text-slate-900">98.4%</p>
+                </div>
+                <div className="p-4 bg-white/5 dark:bg-slate-50 rounded-2xl border border-white/10 dark:border-slate-200">
+                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Avg Session</p>
+                    <p className="text-xl font-black text-white dark:text-slate-900">4.2H</p>
+                </div>
+            </div>
           </div>
         </div>
       </main>

@@ -50,6 +50,7 @@ export default function FarmerHarvestList() {
   const [selectedYear, setSelectedYear] = useState(state?.year || new Date().getFullYear().toString());
   const [selectedArea, setSelectedArea] = useState('all');
   const [selectedMonth, setSelectedMonth] = useState(state?.month || 'all');
+  const [showFilters, setShowFilters] = useState(false);
 
   const years = [2024, 2025, 2026];
   const months = [
@@ -200,72 +201,84 @@ export default function FarmerHarvestList() {
           </div>
         </div>
 
-        <div className="flex flex-col lg:flex-row gap-4">
-          <div className="relative flex-1 group">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-primary transition-colors" />
-            <input 
-              type="text" 
-              placeholder="Search by farmer, area, or identifier..." 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-14 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-2xl pl-12 pr-4 text-sm font-bold placeholder:text-slate-400 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
-            />
+        <div className="flex flex-col gap-3">
+          <div className="flex gap-3">
+            <div className="relative flex-1 group">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-primary transition-colors" />
+              <input 
+                type="text" 
+                placeholder="Search..." 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full h-12 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-xl pl-12 pr-4 text-sm font-bold placeholder:text-slate-400 focus:ring-2 focus:ring-primary/20 focus:border-primary transition-all outline-none"
+              />
+            </div>
+            <button 
+              onClick={() => setShowFilters(!showFilters)}
+              className={`lg:hidden px-4 h-12 flex items-center justify-center rounded-xl border transition-all ${showFilters ? 'bg-primary border-primary text-background-dark' : 'bg-white dark:bg-white/5 border-slate-200 dark:border-white/10 text-slate-400'}`}
+            >
+              <Filter className="w-5 h-5" />
+            </button>
           </div>
           
-          <div className="flex gap-2 p-1.5 bg-slate-100 dark:bg-white/5 rounded-2xl h-14 overflow-x-auto no-scrollbar lg:flex-none">
-            {years.map(y => (
-              <button
-                key={y}
-                onClick={() => setSelectedYear(y.toString())}
-                className={`px-6 flex items-center justify-center rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${selectedYear === y.toString() ? 'bg-white dark:bg-slate-800 text-primary shadow-sm' : 'text-slate-400 opacity-60'}`}
-              >
-                {y}
-              </button>
-            ))}
-          </div>
-
-          <div className="flex-none w-full lg:w-48 relative">
-            <Tractor className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-            <select
-              value={selectedMachine}
-              onChange={(e) => setSelectedMachine(e.target.value)}
-              className="w-full h-14 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-2xl pl-12 pr-4 text-[10px] font-black uppercase tracking-widest appearance-none focus:ring-2 focus:ring-primary/20 outline-none"
-            >
-              <option value="all">ALL MACHINES</option>
-              {machines.map(m => (
-                <option key={m.id} value={m.id}>{m.name.toUpperCase()}</option>
+          <div className={`flex flex-col lg:flex-row gap-3 transition-all duration-300 ${showFilters ? 'block' : 'hidden lg:flex'}`}>
+            <div className="flex gap-2 p-1 bg-slate-100 dark:bg-white/5 rounded-xl h-12 overflow-x-auto no-scrollbar lg:flex-none">
+              {years.map(y => (
+                <button
+                  key={y}
+                  onClick={() => setSelectedYear(y.toString())}
+                  className={`px-4 flex items-center justify-center rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${selectedYear === y.toString() ? 'bg-white dark:bg-slate-800 text-primary shadow-sm' : 'text-slate-400 opacity-60'}`}
+                >
+                  {y}
+                </button>
               ))}
-            </select>
-            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-          </div>
+            </div>
 
-          <div className="flex-none w-full lg:w-48 relative">
-            <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-            <select
-              value={selectedArea}
-              onChange={(e) => setSelectedArea(e.target.value)}
-              className="w-full h-14 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-2xl pl-12 pr-4 text-[10px] font-black uppercase tracking-widest appearance-none focus:ring-2 focus:ring-primary/20 outline-none"
-            >
-              <option value="all">ALL AREAS</option>
-              {areas.filter(a => a !== 'all').map(area => (
-                <option key={area} value={area}>{area.toUpperCase()}</option>
-              ))}
-            </select>
-            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-          </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 flex-1">
+              <div className="relative">
+                <Tractor className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                <select
+                  value={selectedMachine}
+                  onChange={(e) => setSelectedMachine(e.target.value)}
+                  className="w-full h-12 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-xl pl-10 pr-8 text-[9px] font-black uppercase tracking-widest appearance-none focus:ring-2 focus:ring-primary/20 outline-none"
+                >
+                  <option value="all">ALL MACHINES</option>
+                  {machines.map(m => (
+                    <option key={m.id} value={m.id}>{m.name.toUpperCase()}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+              </div>
 
-          <div className="flex-none w-full lg:w-48 relative">
-            <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="w-full h-14 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-2xl pl-12 pr-4 text-[10px] font-black uppercase tracking-widest appearance-none focus:ring-2 focus:ring-primary/20 outline-none"
-            >
-              {months.map(m => (
-                <option key={m.id} value={m.id}>{m.name}</option>
-              ))}
-            </select>
-            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 pointer-events-none" />
+              <div className="relative">
+                <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                <select
+                  value={selectedArea}
+                  onChange={(e) => setSelectedArea(e.target.value)}
+                  className="w-full h-12 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-xl pl-10 pr-8 text-[9px] font-black uppercase tracking-widest appearance-none focus:ring-2 focus:ring-primary/20 outline-none"
+                >
+                  <option value="all">ALL AREAS</option>
+                  {areas.filter(a => a !== 'all').map(area => (
+                    <option key={area} value={area}>{area.toUpperCase()}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+              </div>
+
+              <div className="relative">
+                <Calendar className="absolute left-3.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+                <select
+                  value={selectedMonth}
+                  onChange={(e) => setSelectedMonth(e.target.value)}
+                  className="w-full h-12 bg-white dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-xl pl-10 pr-8 text-[9px] font-black uppercase tracking-widest appearance-none focus:ring-2 focus:ring-primary/20 outline-none"
+                >
+                  {months.map(m => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
+                  ))}
+                </select>
+                <ChevronDown className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-slate-400 pointer-events-none" />
+              </div>
+            </div>
           </div>
         </div>
       </header>
@@ -421,16 +434,16 @@ export default function FarmerHarvestList() {
         )}
       </main>
 
-      <div className="fixed bottom-0 left-0 lg:left-72 right-0 p-6 md:p-8 flex items-center justify-between pointer-events-none z-50">
+      <div className="fixed bottom-20 lg:bottom-0 left-0 lg:left-72 right-0 p-6 md:p-8 flex items-center justify-between pointer-events-none z-50">
         <div className="flex items-center gap-4 pointer-events-auto">
-          <div className="p-5 bg-slate-900 dark:bg-white rounded-[28px] shadow-2xl flex items-center gap-6 border border-white/10 dark:border-slate-200">
+          <div className="p-4 bg-slate-900 dark:bg-white rounded-3xl shadow-2xl flex items-center gap-6 border border-white/10 dark:border-slate-200">
              <div className="flex flex-col">
-                <span className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none mb-1">Total Yield</span>
+                <span className="text-[7px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none mb-1">Total Yield</span>
                 <span className="text-xl font-black text-white dark:text-slate-900 tracking-tighter">₹{(stats.totalRevenue / 1000).toFixed(1)}K</span>
              </div>
              <div className="w-px h-8 bg-white/10 dark:bg-slate-200" />
              <div className="flex flex-col">
-                <span className="text-[8px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none mb-1">Fleet Hours</span>
+                <span className="text-[7px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest leading-none mb-1">Fleet Hours</span>
                 <span className="text-xl font-black text-white dark:text-slate-900 tracking-tighter">{stats.totalHours.toFixed(0)}H</span>
              </div>
           </div>

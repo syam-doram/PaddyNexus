@@ -50,10 +50,14 @@ import ErrorBoundary from './components/ErrorBoundary';
 function AppContent() {
   const { theme } = useTheme();
   const { loading } = useAuth();
+  const [splashLoading, setSplashLoading] = React.useState(true);
   const lastBackPressTime = React.useRef(0);
   
   React.useEffect(() => {
-    // 2. Control the web-splash duration
+    // 2. Control the web-splash duration (minimum 3 seconds)
+    const splashTimer = setTimeout(() => {
+      setSplashLoading(false);
+    }, 3000);
 
     // 3. Handle System Back Button (Exit only on double click within 3sec)
     const backButtonListener = CapApp.addListener('backButton', async (data) => {
@@ -75,7 +79,7 @@ function AppContent() {
     };
   }, []);
 
-  if (loading) {
+  if (loading || splashLoading) {
     return <SplashScreen />;
   }
 
