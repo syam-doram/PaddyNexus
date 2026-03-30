@@ -171,8 +171,6 @@ export default function MachineLog() {
         try {
           const tId = user?.trader_id || user?.id;
           const res = await fetch(`${API_BASE_URL}/machine-logs/${id}${tId ? `?traderId=${tId}` : ''}`, { method: 'DELETE' });
-          const data = await res.json();
-          alert(data.error || "Failed to delete log");
           if (res.ok) {
             fetchLogs();
           } else {
@@ -181,6 +179,7 @@ export default function MachineLog() {
           }
         } catch (err) { console.error(err); alert("Network error during deletion"); }
       }
+
     });
   };
 
