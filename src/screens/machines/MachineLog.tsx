@@ -1,7 +1,9 @@
 import { motion, AnimatePresence } from 'motion/react';
 import { useNavigate, useLocation, useParams } from 'react-router-dom';
-import { ArrowLeft, Clock, Map, IndianRupee, ChevronRight, Plus, CheckCircle2, Tractor, Phone, Play, Pause, AlertCircle, User, Pencil, Check, Banknote, Calendar, X, Trash2, Bell, Gauge, ListFilter } from 'lucide-react';
-import { useState, useEffect } from 'react';
+import { ArrowLeft, Clock, Map, IndianRupee, ChevronRight, Plus, CheckCircle2, Tractor, Phone, Play, Pause, AlertCircle, User, Pencil, Check, Banknote, Calendar, X, Trash2, Bell, Gauge, ListFilter, AlertTriangle } from 'lucide-react';
+import Modal from '../../components/common/Modal';
+import { useState, useEffect, useRef } from 'react';
+
 import { useAuth } from '../../context/AuthContext';
 import { Machine, useMachines, formatDateToLocalISO } from '../../context/MachineContext';
 import { API_BASE_URL } from '../../config/apiConfig';
@@ -30,6 +32,19 @@ export default function MachineLog() {
   const [advanceAmount, setAdvanceAmount] = useState('');
   const [advanceDescription, setAdvanceDescription] = useState('');
   const [submittingAdvance, setSubmittingAdvance] = useState(false);
+  const [modalConfig, setModalConfig] = useState<{
+    isOpen: boolean;
+    type: 'confirm' | 'success' | 'error' | 'warning';
+    title: string;
+    message: string;
+    onConfirm?: () => void;
+  }>({
+    isOpen: false,
+    type: 'confirm',
+    title: '',
+    message: ''
+  });
+
   const [advanceDate] = useState(passedDate);
 
   const fetchMachineData = async (signal?: AbortSignal) => {
@@ -147,20 +162,35 @@ export default function MachineLog() {
   };
 
   const handleDeleteLog = async (id: number | string) => {
-    if (!window.confirm("ARE YOU SURE? This will permanently DELETE this record.")) return;
-    try {
-      const res = await fetch(`${API_BASE_URL}/machine-logs/${id}?traderId=${user?.id}`, { method: 'DELETE' });
-      if (res.ok) fetchLogs();
-    } catch (err) { console.error(err); }
+    setModalConfig({
+        isOpen: true,
+        type: 'warning',
+        title: 'Delete Harvest Record',
+        message: 'This action is PERMANENT. Are you absolutely sure you want to scrub this harvest log from the machine journal?',
+        onConfirm: async () => {
+            try {
+                const res = await fetch(`${API_BASE_URL}/machine-logs/${id}?traderId=${user?.id}`, { method: 'DELETE' });
+                if (res.ok) fetchLogs();
+            } catch (err) { console.error(err); }
+        }
+    });
   };
 
   const handleDeleteAdvance = async (id: number | string) => {
-    if (!window.confirm("Delete this advance payment?")) return;
-    try {
-      const res = await fetch(`${API_BASE_URL}/machine-advances/${id}?traderId=${user?.id}`, { method: 'DELETE' });
-      if (res.ok) fetchLogs();
-    } catch (err) { console.error(err); }
+    setModalConfig({
+        isOpen: true,
+        type: 'warning',
+        title: 'Retract Payment',
+        message: 'Are you sure you want to delete this advance payment record? This will affect the net balance calculation.',
+        onConfirm: async () => {
+            try {
+                const res = await fetch(`${API_BASE_URL}/machine-advances/${id}?traderId=${user?.id}`, { method: 'DELETE' });
+                if (res.ok) fetchLogs();
+            } catch (err) { console.error(err); }
+        }
+    });
   };
+
 
   const todayStr = passedDate;
   const todayLogs = logs.filter(l => l.date === todayStr);
@@ -312,11 +342,12 @@ export default function MachineLog() {
 
                     <div className="space-y-4">
                         {todayAdvances.map((adv, idx) => (
-                            <div key={adv.id || idx} className="p-5 bg-white/5 border border-white/5 rounded-3xl group relative hover:bg-white/10 transition-all">
+                            <div key={adv._id || idx} className="p-5 bg-white/5 border border-white/5 rounded-3xl group relative hover:bg-white/10 transition-all">
                                 <div className="flex justify-between items-start mb-2">
                                     <p className="text-xl font-black tracking-tighter">₹{adv.amount}</p>
-                                    <button onClick={() => handleDeleteAdvance(adv.id)} className="p-1 opacity-0 group-hover:opacity-100 text-red-400 transition-opacity"><Trash2 className="w-4 h-4" /></button>
+                                    <button onClick={() => handleDeleteAdvance(adv._id)} className="p-1 opacity-0 group-hover:opacity-100 text-red-400 transition-opacity"><Trash2 className="w-4 h-4" /></button>
                                 </div>
+
                                 <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight truncate">{adv.description || 'General Expense'}</p>
                                 <div className="absolute top-1/2 -left-1 w-2 h-4 bg-primary rounded-r-lg" />
                             </div>
@@ -354,7 +385,8 @@ export default function MachineLog() {
                     <AnimatePresence mode="popLayout">
                         {timelineItems.map((log, i) => (
                             <motion.div
-                                key={log.id}
+                                key={log._id}
+
                                 layout
                                 initial={{ opacity: 0, scale: 0.95 }}
                                 animate={{ opacity: 1, scale: 1 }}
@@ -371,8 +403,9 @@ export default function MachineLog() {
                                             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{log.date}</p>
                                         </div>
                                     </div>
-                                    <button onClick={() => handleDeleteLog(log.id)} className="p-3 bg-red-50 dark:bg-red-500/10 text-red-500 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-5 h-5" /></button>
+                                    <button onClick={() => handleDeleteLog(log._id)} className="p-3 bg-red-50 dark:bg-red-500/10 text-red-500 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity"><Trash2 className="w-5 h-5" /></button>
                                 </div>
+
 
                                 <div className="grid grid-cols-2 gap-6 mb-10 pb-8 border-b border-slate-50 dark:border-white/5">
                                     <div className="space-y-4">
@@ -474,6 +507,18 @@ export default function MachineLog() {
         </div>
       )}
       </AnimatePresence>
+
+      <Modal 
+        isOpen={modalConfig.isOpen}
+        onClose={() => setModalConfig(prev => ({ ...prev, isOpen: false }))}
+        onConfirm={modalConfig.onConfirm}
+        type={modalConfig.type}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        confirmText="Proceed"
+        cancelText="Cancel"
+      />
     </div>
   );
 }
+
