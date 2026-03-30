@@ -27,9 +27,8 @@ export default function Sidebar() {
 
   const traderNavItems = [
     { icon: Home, label: 'Overview', path: '/dashboard' },
-     { icon: Server, label: 'Machines', path: '/machines' },
-     { icon: IndianRupee, label: 'Settlement', path: '/machine-settlement' },
     { icon: Tractor, label: 'Machine Earn', path: '/trader/machine-earn' },
+
     { icon: PlusCircle, label: 'Main Entries', path: '/trader/entries' },
     { icon: Package, label: 'Paddy Earn', path: '/trader/paddy-earn' },
     { icon: UsersIcon, label: 'Team Management', path: '/trader/users' },

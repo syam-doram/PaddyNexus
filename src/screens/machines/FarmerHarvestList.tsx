@@ -355,9 +355,10 @@ export default function FarmerHarvestList() {
                           </td>
                           <td className="px-6 py-5">
                              <button 
-                               onClick={() => navigate(`/machine-log/${encodeURIComponent(log.machine_id)}`, { state: { date: log.date } })}
+                               onClick={() => log.machine_id && navigate(`/machine-log/${encodeURIComponent(log.machine_id)}`, { state: { date: log.date } })}
                                className="mx-auto w-8 h-8 bg-slate-100 dark:bg-white/5 rounded-lg flex items-center justify-center text-slate-400 hover:text-primary transition-all active:scale-90"
                              >
+
                                <ChevronRight className="w-4 h-4" />
                              </button>
                           </td>

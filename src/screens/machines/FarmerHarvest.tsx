@@ -79,9 +79,11 @@ export default function FarmerHarvest() {
     if (machine.registration_date) {
       const regDate = new Date(machine.registration_date);
       const now = new Date();
-      const twoYearsInMs = 2 * 365 * 24 * 60 * 60 * 1000;
+      // Expanded beyond 2-year seasonal lock to a 5-year operational mandate
+      const fiveYearsInMs = 5 * 365.25 * 24 * 60 * 60 * 1000;
 
-      if (now.getTime() - regDate.getTime() > twoYearsInMs) {
+      if (now.getTime() - regDate.getTime() > fiveYearsInMs) {
+
         setShowLifecycleExpired(true);
       } else {
         setShowLifecycleExpired(false);
@@ -193,9 +195,12 @@ export default function FarmerHarvest() {
         setValidationMessage(err.error || "Tactical Synchronization Failed");
         setShowValidationDialog(true);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to save entry:", err);
+      setValidationMessage(err.message || "Network Error: Strategic Sync Disrupted");
+      setShowValidationDialog(true);
     } finally {
+
       setSubmitting(false);
     }
   };
@@ -415,7 +420,8 @@ export default function FarmerHarvest() {
               <button
                 onClick={handleSave}
                 disabled={submitting}
-                className="w-full h-20 mt-12 bg-primary hover:bg-[#22c55e] text-background-dark rounded-[32px] font-black text-lg uppercase tracking-tight shadow-2xl shadow-primary/20 active:scale-5 transition-all flex items-center justify-center gap-1"
+                className="w-full h-20 mt-12 bg-primary hover:bg-[#22c55e] text-background-dark rounded-[32px] font-black text-lg uppercase tracking-tight shadow-2xl shadow-primary/20 active:scale-95 transition-all flex items-center justify-center gap-1"
+
               >
                 {submitting ? 'Executing...' : <><Save className="w-5 h-5" /> Entry</>}
               </button>
@@ -538,14 +544,16 @@ export default function FarmerHarvest() {
                 </div>
                 <h2 className="text-3xl font-black text-slate-900 dark:text-white uppercase italic tracking-tighter">Lifecycle Expired</h2>
                 <p className="text-[10px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-widest mt-4 px-4">
-                  Strategic window exceeded. This machine has surpassed its 2-year operational mandate since registration.
+                  Strategic window exceeded. This machine has surpassed its 5-year operational mandate since registration.
+
                 </p>
               </div>
 
               <div className="bg-orange-50/50 dark:bg-orange-900/10 rounded-3xl p-6 border border-orange-50 dark:border-orange-900/20 flex flex-col items-center gap-2">
                 <div className="flex items-center gap-3">
                   <History className="w-4 h-4 text-orange-500" />
-                  <p className="text-[10px] font-black text-orange-700 dark:text-orange-400 uppercase tracking-widest">Asset Age: 2+ Years</p>
+                  <p className="text-[10px] font-black text-orange-700 dark:text-orange-400 uppercase tracking-widest">Asset Age: 5+ Years</p>
+
                 </div>
                 <p className="text-[9px] font-bold text-slate-400 uppercase">Registered: {machine?.registration_date ? new Date(machine.registration_date).toLocaleDateString() : 'Unknown'}</p>
               </div>

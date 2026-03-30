@@ -32,10 +32,15 @@ app.get('/api/health', (req, res) => {
 });
 
 // Helper to clean machine IDs (strips colon suffixes)
-const cleanMachineId = (id: string | number): string => {
+const cleanMachineId = (id: any): string => {
+  if (id === null || id === undefined) return '';
   if (typeof id === 'number') return id.toString();
-  return id.trim().split(':')[0];
+  if (typeof id !== 'string') return String(id);
+  const trimmed = id.trim();
+  if (trimmed === 'undefined' || trimmed === 'null' || trimmed === '') return '';
+  return trimmed.split(':')[0];
 };
+
 
 // AUTHENTICATION Endpoints
 
@@ -1296,8 +1301,10 @@ app.get('/api/machine-logs/:machineId', async (req, res) => {
   const { traderId } = req.query;
   try {
     const cleanId = cleanMachineId(machineId);
+    if (!cleanId) return res.json([]);
     if (traderId) {
       const machine = await Machine.findOne({ id: cleanId });
+
       if (machine && machine.trader_id && machine.trader_id.toString() !== traderId.toString()) {
         return res.status(403).json({ error: 'Access denied' });
       }
@@ -1627,7 +1634,9 @@ app.get('/api/machine-report/:id', async (req, res) => {
   const targetYear = (year as string) || new Date().getFullYear().toString();
   try {
     const cleanId = cleanMachineId(id);
+    if (!cleanId) return res.status(404).json({ error: 'Machine not found' });
     const machine = await Machine.findOne({ id: cleanId });
+
     if (!machine) return res.status(404).json({ error: 'Machine not found' });
     if (traderId && machine.trader_id && machine.trader_id.toString() !== traderId.toString()) return res.status(403).json({ error: 'Access denied' });
 

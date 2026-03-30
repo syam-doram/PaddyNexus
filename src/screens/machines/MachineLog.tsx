@@ -33,7 +33,11 @@ export default function MachineLog() {
   const [advanceDate] = useState(passedDate);
 
   const fetchMachineData = async (signal?: AbortSignal) => {
-    if (!machineId) return;
+    if (!machineId || machineId === 'undefined') {
+      setMachineLoading(false);
+      return;
+    }
+
     try {
       const tId = user?.trader_id || user?.id;
       let url = `${API_BASE_URL}/machines/${encodeURIComponent(machineId)}`;
@@ -53,8 +57,12 @@ export default function MachineLog() {
 
   const fetchLogs = async (signal?: AbortSignal) => {
     const rawId = machine?.id || machineId;
-    if (!rawId) return;
+    if (!rawId || rawId === 'undefined') {
+      setLoading(false);
+      return;
+    }
     const targetId = rawId.trim().replace(/:.*/, '');
+
     const tId = user?.trader_id || user?.id;
     try {
       const logsUrl = `${API_BASE_URL}/machine-logs/${encodeURIComponent(targetId)}${tId ? `?traderId=${tId}` : ''}`;
