@@ -1456,15 +1456,23 @@ app.delete('/api/machine-logs/:id', async (req, res) => {
   const { id } = req.params;
   const { traderId } = req.query;
   try {
-    const filter: any = { _id: id };
-    if (traderId) filter.trader_id = traderId;
-    const result = await MachineLog.findOneAndDelete(filter);
-    if (!result) return res.status(404).json({ error: 'Log not found' });
+    const log = await MachineLog.findById(id);
+    if (!log) return res.status(404).json({ error: 'Log entry not found' });
+
+    if (traderId) {
+      const machine = await Machine.findOne({ id: log.machine_id });
+      if (machine && machine.trader_id && machine.trader_id.toString() !== traderId.toString()) {
+        return res.status(403).json({ error: 'Access denied: You do not own the associated harvester.' });
+      }
+    }
+
+    await MachineLog.findByIdAndDelete(id);
     res.json({ success: true });
   } catch (error: any) {
     res.status(500).json({ error: 'Internal Server Error', message: error.message });
   }
 });
+
 
 app.delete('/api/machine-advances/:id', async (req, res) => {
   const { id } = req.params;

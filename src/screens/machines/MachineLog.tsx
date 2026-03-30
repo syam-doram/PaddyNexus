@@ -169,9 +169,15 @@ export default function MachineLog() {
         message: 'This action is PERMANENT. Are you absolutely sure you want to scrub this harvest log from the machine journal?',
         onConfirm: async () => {
             try {
-                const res = await fetch(`${API_BASE_URL}/machine-logs/${id}?traderId=${user?.id}`, { method: 'DELETE' });
-                if (res.ok) fetchLogs();
-            } catch (err) { console.error(err); }
+                const tId = user?.trader_id || user?.id;
+                const res = await fetch(`${API_BASE_URL}/machine-logs/${id}${tId ? `?traderId=${tId}` : ''}`, { method: 'DELETE' });
+                if (res.ok) {
+                    fetchLogs();
+                } else {
+                    const data = await res.json();
+                    alert(data.error || "Failed to delete log");
+                }
+            } catch (err) { console.error(err); alert("Network error during deletion"); }
         }
     });
   };
@@ -184,12 +190,19 @@ export default function MachineLog() {
         message: 'Are you sure you want to delete this advance payment record? This will affect the net balance calculation.',
         onConfirm: async () => {
             try {
-                const res = await fetch(`${API_BASE_URL}/machine-advances/${id}?traderId=${user?.id}`, { method: 'DELETE' });
-                if (res.ok) fetchLogs();
-            } catch (err) { console.error(err); }
+                const tId = user?.trader_id || user?.id;
+                const res = await fetch(`${API_BASE_URL}/machine-advances/${id}${tId ? `?traderId=${tId}` : ''}`, { method: 'DELETE' });
+                if (res.ok) {
+                    fetchLogs();
+                } else {
+                    const data = await res.json();
+                    alert(data.error || "Failed to delete advance");
+                }
+            } catch (err) { console.error(err); alert("Network error during deletion"); }
         }
     });
   };
+
 
 
   const todayStr = passedDate;
