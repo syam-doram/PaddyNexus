@@ -132,191 +132,309 @@ export default function MillSettlement() {
 
   const handleGenerateReport = (lot: any, payments: any[]) => {
     const totalPayments = payments.reduce((sum, p) => sum + (p.amount || 0), 0);
-    const moistureIndex = lot.avgMoisture || 13.5;
     const moistureLoss = (lot.manual_deductions_applied === 1) ? (lot.moisture_loss || 0) : 0;
     const bagPenalty = (lot.manual_deductions_applied === 1) ? (lot.bag_penalty || 0) : 0;
     const laborCost = (lot.manual_deductions_applied === 1) ? (lot.labor_cost || 0) : 0;
     const totalDeductions = moistureLoss + bagPenalty + laborCost;
-    const bagWeight = parseFloat(lot.weight_capacity as string) || 73;
+    
+    // Financial calculations
+    const bagWeight = 73; // Standard bag weight as per business logic
     const lotTotalBags = lot.totalBags || 0;
-    
-    // 1. Total Weight = Bags * Weight Capacity
-    const lotTotalWeight = lotTotalBags * bagWeight;
-    
-    // 2. Per KG Rate = Paddy Rate / Weight Capacity
+    const lotTotalWeight = lot.totalWeightKgs || (lotTotalBags * bagWeight);
     const perKgPaddyRate = (lot.paddyRate || 1200) / bagWeight;
-    
-    // 3. Total Paddy Gross = Total Weight * Per KG Rate
     const currentLotAmount = lotTotalWeight * perKgPaddyRate;
     
-    // 4. Commissions
     const traderAmount = lotTotalBags * (lot.dealer_commission_rate || 0);
     const labourAmount = lotTotalBags * (lot.labour_commission_rate || 0);
-    
-    const netPayable = (currentLotAmount + traderAmount + labourAmount) - totalPayments - totalDeductions;
+
+    const transitions = [
+      { id: 'LOADED', label: 'Lot Loaded', date: lot.loaded_at },
+      { id: 'TRANSIT', label: 'In Transit', date: lot.transit_at },
+      { id: 'DELIVERED', label: 'Arrival at Mill', date: lot.delivered_at },
+      { id: 'QUALITY', label: 'Quality Verified', date: lot.quality_checked_at },
+      { id: 'PAID', label: 'Remittance Released', date: lot.paid_at },
+      { id: 'SETTLED', label: 'Account Finalized', date: lot.settled_at }
+    ].filter(t => t.date);
 
     const reportHtml = `
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Commercial Invoice - ${lot.id}</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+        <title>Lot Audit - ${lot.id}</title>
         <style>
-          @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;900&display=swap');
-          body { font-family: 'Outfit', sans-serif; padding: 40px; color: #334155; line-height: 1.4; background: #f8fafc; }
-          .invoice-card { background: #fff; max-width: 900px; margin: 0 auto; box-shadow: 0 20px 50px rgba(0,0,0,0.05); border-radius: 24px; padding: 50px; position: relative; overflow: hidden; }
-          .invoice-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 10px; background: linear-gradient(to right, #6366f1, #3b82f6); }
+          @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&display=swap');
           
-          .header { display: flex; justify-content: space-between; margin-bottom: 50px; }
-          .brand-box { }
-          .brand-name { font-size: 32px; font-weight: 900; color: #0f172a; text-transform: uppercase; letter-spacing: -1px; margin-bottom: 5px; }
-          .brand-tagline { font-size: 10px; font-weight: 700; color: #6366f1; text-transform: uppercase; letter-spacing: 2px; }
-          
-          .meta-box { text-align: right; }
-          .doc-title { font-size: 20px; font-weight: 900; color: #0f172a; text-transform: uppercase; margin-bottom: 10px; }
-          .badge { display: inline-block; padding: 6px 12px; border-radius: 10px; font-size: 11px; font-weight: 800; text-transform: uppercase; }
-          .badge-blue { background: #eef2ff; color: #6366f1; }
-          
-          .info-grid { display: grid; grid-template-cols: 1.5fr 1fr; gap: 40px; margin-bottom: 40px; }
-          .info-section h4 { font-size: 10px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 15px; border-bottom: 1px solid #f1f5f9; padding-bottom: 10px; }
-          .info-item { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 13px; font-weight: 600; }
-          .info-val { color: #0f172a; }
+          * { margin: 0; padding: 0; box-sizing: border-box; -webkit-print-color-adjust: exact; }
+          body { 
+            font-family: 'Outfit', sans-serif; 
+            background: #F1F5F9; 
+            color: #0F172A; 
+            padding: 24px; 
+            padding-top: 80px;
+            line-height: 1.4; 
+          }
 
-          .scale-iq-banner { background: #0f172a; color: #fff; border-radius: 20px; padding: 25px; display: grid; grid-template-cols: repeat(3, 1fr); gap: 20px; margin-bottom: 40px; }
-          .scale-stat { text-align: center; border-right: 1px solid rgba(255,255,255,0.1); }
-          .scale-stat:last-child { border-right: none; }
-          .scale-label { font-size: 9px; font-weight: 700; color: #94a3b8; text-transform: uppercase; margin-bottom: 8px; }
-          .scale-value { font-size: 18px; font-weight: 800; color: #fff; }
-          .scale-plus { color: #6366f1; }
+          .no-print { position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; gap: 12px; }
+          .btn-action { 
+            width: 44px; height: 44px; border-radius: 50%; 
+            background: #0F172A; color: white; border: none; 
+            font-size: 20px; cursor: pointer; 
+            display: flex; align-items: center; justify-content: center; 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2); 
+            transition: transform 0.2s;
+          }
+          .btn-action:active { transform: scale(0.9); }
+          .btn-download { background: #10B981; }
 
-          .ledger-table { width: 100%; margin-bottom: 40px; }
-          .ledger-table th { text-align: left; padding: 15px; font-size: 10px; font-weight: 800; color: #64748b; text-transform: uppercase; background: #f8fafc; border-radius: 10px 0 0 10px; }
-          .ledger-table td { padding: 15px; border-bottom: 1px solid #f1f5f9; font-size: 13px; font-weight: 600; }
-          .ledger-table .val-col { text-align: right; font-weight: 800; color: #0f172a; }
-          .ledger-table .desc-col { color: #64748b; font-size: 11px; display: block; margin-top: 4px; }
-          
-          .grand-total-box { margin-left: auto; width: 350px; background: #f8fafc; border-radius: 24px; padding: 30px; }
-          .total-row { display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 14px; font-weight: 600; }
-          .total-row.final { font-size: 24px; font-weight: 900; color: #0f172a; margin-top: 20px; padding-top: 20px; border-top: 2px dashed #e2e8f0; }
+          .container { max-width: 500px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
 
-          .footer-section { margin-top: 60px; display: flex; justify-content: space-between; align-items: center; }
-          .qr-placeholder { width: 80px; height: 80px; background: #f8fafc; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 8px; color: #94a3b8; text-align: center; border: 1px solid #e2e8f0; }
-          .auth-box { text-align: right; }
-          .auth-line { border-bottom: 2px solid #0f172a; width: 180px; margin-bottom: 10px; }
-          .auth-title { font-size: 10px; font-weight: 800; color: #94a3b8; text-transform: uppercase; }
+          /* Header Section */
+          .header-meta { font-size: 10px; font-weight: 800; color: #64748B; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px; }
+          .lot-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+          .lot-id { font-size: 32px; font-weight: 900; color: #0F172A; letter-spacing: -0.02em; }
+          .status-badge { 
+            background: #BEF264; color: #3F6212; 
+            padding: 6px 12px; border-radius: 99px; 
+            font-size: 10px; font-weight: 900; 
+            text-transform: uppercase; letter-spacing: 0.05em; 
+            display: flex; align-items: center; gap: 4px;
+          }
+
+          .entity-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
+          .entity-logo { 
+            width: 48px; height: 48px; background: #0F172A; 
+            border-radius: 12px; display: flex; align-items: center; justify-content: center;
+          }
+          .entity-info h3 { font-size: 18px; font-weight: 800; text-transform: uppercase; line-height: 1.2; }
+          .entity-info p { font-size: 12px; font-weight: 600; color: #64748B; }
+
+          /* Generic Card Style */
+          .card { background: #FFFFFF; padding: 24px; border-radius: 28px; border: 1px solid rgba(0,0,0,0.05); }
+          .card-title { font-size: 11px; font-weight: 900; color: #94A3B8; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 16px; border-bottom: 1px solid #F1F5F9; padding-bottom: 8px;}
+
+          /* Payload Card */
+          .payload-card { 
+            background: #143D14; color: white; 
+            padding: 32px; border-radius: 32px; 
+            position: relative; overflow: hidden;
+            box-shadow: 0 20px 40px rgba(20, 61, 20, 0.1);
+          }
+          .payload-label { font-size: 10px; font-weight: 800; color: rgba(255,255,255,0.6); text-transform: uppercase; margin-bottom: 8px; }
+          .payload-main { font-size: 48px; font-weight: 900; line-height: 1; margin-bottom: 24px; }
+          .payload-unit { font-size: 16px; opacity: 0.6; margin-left: 4px; }
+          .payload-sub-grid { display: grid; grid-template-cols: 1fr 1fr; gap: 24px; border-top: 1px solid rgba(255,255,255,0.1); padding-top: 20px;}
+          .payload-sub-label { font-size: 9px; font-weight: 800; color: rgba(255,255,255,0.5); text-transform: uppercase; margin-bottom: 4px; }
+          .payload-sub-value { font-size: 20px; font-weight: 800; }
+
+          /* Info Grid */
+          .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+          .info-val { font-size: 15px; font-weight: 800; color: #0F172A; }
+          .info-label { font-size: 9px; font-weight: 800; color: #94A3B8; text-transform: uppercase; margin-bottom: 2px; }
+
+          /* Timeline */
+          .timeline { display: flex; flex-direction: column; gap: 16px; padding-left: 12px; }
+          .timeline-item { position: relative; padding-left: 28px; border-left: 2px solid #E2E8F0; }
+          .timeline-item::before { 
+            content: ''; position: absolute; left: -7px; top: 0; 
+            width: 12px; height: 12px; background: #BEF264; border: 2px solid #143D14; border-radius: 50%;
+          }
+          .timeline-item:last-child { border-left-color: transparent; }
+          .timeline-label { font-size: 13px; font-weight: 800; color: #0F172A; }
+          .timeline-date { font-size: 10px; font-weight: 700; color: #64748B; text-transform: uppercase; }
+
+          /* Ledger List */
+          .ledger-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid #F1F5F9; }
+          .ledger-item:last-child { border-bottom: none; }
+          .ledger-info h5 { font-size: 13px; font-weight: 800; }
+          .ledger-info p { font-size: 10px; color: #94A3B8; font-weight: 700; }
+          .ledger-val { font-size: 14px; font-weight: 800; color: #0F172A; }
+
+          /* Transaction Row */
+          .txn-item { background: #F8FAFC; padding: 14px; border-radius: 16px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #F1F5F9; }
+          .txn-main { font-size: 13px; font-weight: 800; color: #14532D; }
 
           @media print {
-             body { padding: 0; background: #fff; }
-             .invoice-card { box-shadow: none; padding: 30px; border-radius: 0; max-width: 100%; }
+            body { padding: 0 !important; background: white !important; }
+            .no-print { display: none !important; }
+            .container { max-width: 100% !important; margin: 0 !important; }
+            .card { border: 1px solid #F1F5F9 !important; }
           }
         </style>
       </head>
       <body>
-        <div class="invoice-card">
-          <div class="header">
-            <div class="brand-box">
-              <div class="brand-name">PADDY<span>NEXUS</span></div>
-              <div class="brand-tagline">Industrial Logistics & Finance Audit</div>
-            </div>
-            <div class="meta-box">
-              <div class="doc-title">Settlement Audit</div>
-              <div class="badge badge-blue">REF ID: ${lot.id}</div>
-              <div style="font-size: 11px; font-weight: 700; color: #94a3b8; margin-top: 10px;">PERIOD: ${new Date().getFullYear()} AUDIT CYCLE</div>
-            </div>
-          </div>
-
-          <div class="info-grid">
-            <div class="info-section">
-              <h4>Mill Logistics Provider</h4>
-              <div class="info-item"><span>Processing Entity</span><span class="info-val">${lot.mill_name || 'N/A'}</span></div>
-              <div class="info-item"><span>Vehicle Registry</span><span class="info-val">${lot.reg_number || 'N/A'} [${lot.vehicle_type || 'Transport'}]</span></div>
-              <div class="info-item"><span>Point of Loading</span><span class="info-val">${lot.load_area || 'Standard Depot'}</span></div>
-              <div class="info-item"><span>Inventory Count</span><span class="info-val">${lot.totalBags || 0} Standard Bags</span></div>
-            </div>
-            <div class="info-section">
-              <h4>Chronicle Details</h4>
-              <div class="info-item"><span>Harvest Point</span><span class="info-val">${lot.date}</span></div>
-              <div class="info-item"><span>Batch No.</span><span class="info-val">${lot.id.split('-').pop()} / ${new Date().getMonth() + 1}</span></div>
-              <div class="info-item"><span>Paddy Type</span><span class="info-val">${lot.paddyType || 'Basmati'}</span></div>
-              <div class="info-item"><span>Status</span><span class="info-val" style="color: #059669">Verified Entry</span></div>
+        <div class="no-print">
+          <button class="btn-action btn-download" onclick="window.print()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2-2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          </button>
+          <button class="btn-action" onclick="window.close()">×</button>
+        </div>
+        <div class="container">
+          <div>
+            <p class="header-meta">Institutional Archive</p>
+            <div class="lot-header">
+              <h1 class="lot-id">#${lot.id}</h1>
+              <div class="status-badge">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                Audit Finalized
+              </div>
             </div>
           </div>
 
-          <div class="scale-iq-banner">
-            <div class="scale-stat">
-              <div class="scale-label">Tare Weight (Unladen)</div>
-              <div class="scale-value">${(lot.pre_load_scale || 0).toLocaleString('en-IN')} <span class="scale-plus">KG</span></div>
+          <div class="entity-bar">
+            <div class="entity-logo">
+               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#BEF264" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 18H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11a2 2 0 0 1 2 2v10"/><path d="M8 11h4"/><path d="M8 15h4"/><circle cx="10" cy="18" r="2"/><circle cx="18" cy="18" r="2"/><path d="M15 18h1"/><path d="M17 10h4l2 3v5h-5"/><path d="M17 13h6"/></svg>
             </div>
-            <div class="scale-stat">
-              <div class="scale-label">Gross Weight (Laden)</div>
-              <div class="scale-value">${(lot.post_load_scale || 0).toLocaleString('en-IN')} <span class="scale-plus">KG</span></div>
-            </div>
-            <div class="scale-stat">
-              <div class="scale-label">Net Payload Weight</div>
-              <div class="scale-value" style="color: #6366f1;">${(lot.totalWeightKgs || 0).toLocaleString('en-IN')} <span class="scale-label" style="color: #fff">KG</span></div>
+            <div class="entity-info">
+              <h3>${lot.mill_name || 'REGISTERED MILL'}</h3>
+              <p>Industrial Settlement Context • ${new Date().getFullYear()}</p>
             </div>
           </div>
 
-          <table class="ledger-table">
-            <thead>
-              <tr>
-                <th>Audit Ledger Item</th>
-                <th style="text-align: right;">Amount Distribution (INR)</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>
-                  Lot Valuation
-                  <span class="desc-col">
-                    Standard Valuation: ${lot.totalBags || 0} Bags × Market Rate (₹${lot.paddyRate || 1200} / 73KG Bag)
-                  </span>
-                </td>
-                <td class="val-col">₹${currentLotAmount.toLocaleString('en-IN')}</td>
-              </tr>
-              <tr>
-                <td>
-                  Agency Remuneration
-                  <span class="desc-col">Trader Brokerage Fee for ${lot.totalBags || 0} Bags</span>
-                </td>
-                <td class="val-col">₹${traderAmount.toLocaleString('en-IN')}</td>
-              </tr>
-              <tr>
-                <td>
-                  Labour Management Fee
-                  <span class="desc-col">Industrial Labour Handling & Loading Service</span>
-                </td>
-                <td class="val-col">₹${labourAmount.toLocaleString('en-IN')}</td>
-              </tr>
-              <tr>
-                <td>
-                  Operational Deductions
-                  <span class="desc-col">Adjustments for Moisture Loss, Penalties & Handling (₹${moistureLoss} + ₹${bagPenalty} + ₹${laborCost})</span>
-                </td>
-                <td class="val-col" style="color: #ef4444;">- ₹${(moistureLoss + bagPenalty + laborCost).toLocaleString('en-IN')}</td>
-              </tr>
-            </tbody>
-          </table>
-
-          <div class="grand-total-box">
-             <div class="total-row"><span>Total Receivables</span><span>₹${(currentLotAmount + traderAmount + labourAmount).toLocaleString('en-IN')}</span></div>
-             <div class="total-row"><span>Remittance Received</span><span style="color: #059669">₹${totalPayments.toLocaleString('en-IN')}</span></div>
-             <div class="total-row final">
-               <span style="font-size: 14px; text-transform: uppercase;">Outstanding</span>
-               <span>₹${netPayable.toLocaleString('en-IN')}</span>
-             </div>
+          <div class="payload-card">
+            <p class="payload-label">Certified Net Yield</p>
+            <div class="payload-main">${(lotTotalWeight || 0).toLocaleString('en-IN')}<span class="payload-unit">KG</span></div>
+            <p style="font-size: 10px; font-weight: 700; color: rgba(255,255,255,0.4); margin-top: -12px; margin-bottom: 20px;">BAG CALCULATION: ${lotTotalBags.toLocaleString('en-IN')} BAGS × ${bagWeight} KG (STD)</p>
+            ${lot.post_load_scale > 0 ? `<p style="font-size: 8px; font-weight: 600; color: rgba(255,255,255,0.3); margin-top: -16px; margin-bottom: 20px;">TRUCK CALCULATION: ${(lot.post_load_scale || 0).toLocaleString('en-IN')} (GROSS) - ${(lot.pre_load_scale || 0).toLocaleString('en-IN')} (TARE)</p>` : ''}
           </div>
 
-          <div class="footer-section">
-            <div class="qr-placeholder">DIGITAL<br>VERIFIED<br>AUDIT</div>
-            <div class="auth-box">
-              <div class="auth-line"></div>
-              <div class="auth-title">Certified Audit Officer</div>
-              <div style="font-size: 9px; color: #94a3b8; margin-top: 5px;">This Audit Certificate is digitally generated via PaddyNexus Cloud Nodes.</div>
+          <div class="card">
+            <p class="card-title">Logistics Traceability</p>
+            <div class="info-grid">
+              <div>
+                <p class="info-label">Vehicle Context</p>
+                <p class="info-val">${lot.vehicle_type || 'Commercial Trailor'}</p>
+              </div>
+              <div>
+                <p class="info-label">Registry Number</p>
+                <p class="info-val" style="text-transform: uppercase;">${lot.reg_number || 'TR-7722'}</p>
+              </div>
+              <div style="margin-top: 12px;">
+                <p class="info-label">Point of Loading</p>
+                <p class="info-val">${lot.load_area || 'Central Depot'}</p>
+              </div>
+              <div style="margin-top: 12px;">
+                <p class="info-label">Manifest Date</p>
+                <p class="info-val">${lot.date}</p>
+              </div>
             </div>
           </div>
+
+          <div class="card">
+            <p class="card-title">Technical Audit Statistics</p>
+            <div class="info-grid">
+               <div>
+                <p class="info-label">Avg Moisture Index</p>
+                <p class="info-val" style="color: #10B981;">${lot.avgMoisture || '13.5'}%</p>
+              </div>
+               <div>
+                <p class="info-label">Verification Strategy</p>
+                <p class="info-val" style="color: ${lot.post_load_scale > 0 ? '#0EA5E9' : '#0F172A'};">${lot.post_load_scale > 0 ? 'Digital Audit' : 'Bag Audit'}</p>
+              </div>
+              <div style="margin-top: 12px;">
+                <p class="info-label">Inventory Size</p>
+                <p class="info-val">${lotTotalBags} Standard Bags</p>
+              </div>
+              <div style="margin-top: 12px;">
+                <p class="info-label">Unit Valuation</p>
+                <p class="info-val">₹${lot.paddyRate || 1200} / Unit</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <p class="card-title">Chain of Custody Timeline</p>
+            <div class="timeline">
+              ${transitions.map(t => `
+                <div class="timeline-item">
+                  <p class="timeline-label">${t.label}</p>
+                  <p class="timeline-date">${new Date(t.date).toLocaleDateString('en-IN')} • ${new Date(t.date).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}</p>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+
+          <div class="card">
+            <p class="card-title">Audit Ledger Breakdown</p>
+            <div class="ledger-item">
+              <div class="ledger-info">
+                <h5>Lot Valuation</h5>
+                <p>Gross Paddy Value (Weight × Rate)</p>
+                <p style="font-size: 8px; color: #64748B;">${lotTotalWeight.toLocaleString('en-IN')} KG × ₹${perKgPaddyRate.toFixed(2)}/KG</p>
+              </div>
+              <p class="ledger-val">₹${currentLotAmount.toLocaleString('en-IN')}</p>
+            </div>
+            <div class="ledger-item">
+              <div class="ledger-info">
+                <h5>Merchant Fees</h5>
+                <p>Brokerage Remuneration (Bags × Fee)</p>
+                <p style="font-size: 8px; color: #64748B;">${lotTotalBags} BAGS × ₹${lot.dealer_commission_rate || 0}/BAG</p>
+              </div>
+              <p class="ledger-val">+ ₹${traderAmount.toLocaleString('en-IN')}</p>
+            </div>
+            <div class="ledger-item">
+              <div class="ledger-info">
+                <h5>Industrial Costs</h5>
+                <p>Handling & Labour (Bags × Fee)</p>
+                <p style="font-size: 8px; color: #64748B;">${lotTotalBags} BAGS × ₹${lot.labour_commission_rate || 0}/BAG</p>
+              </div>
+              <p class="ledger-val">+ ₹${labourAmount.toLocaleString('en-IN')}</p>
+            </div>
+            <!-- Audit Penalties Itemization -->
+            <div class="ledger-item" style="border-top: 1px dashed #E2E8F0; margin-top: 8px; padding-top: 8px;">
+               <div class="ledger-info"><p style="font-size: 8px; font-weight: 800; color: #94A3B8; text-transform: uppercase;">Detailed Audit Penalties</p></div>
+            </div>
+            <div class="ledger-item" style="padding-top: 4px;">
+              <div class="ledger-info"><h5>Moisture Loss</h5><p>Quality Adjustment Index (${lot.avgMoisture || '13.5'}%)</p></div>
+              <p class="ledger-val" style="color: #EF4444; font-size: 11px;">- ₹${moistureLoss.toLocaleString('en-IN')}</p>
+            </div>
+            <div class="ledger-item" style="padding-top: 0px;">
+              <div class="ledger-info"><h5>Bag Weight</h5><p>Unit Deviation Penalty</p></div>
+              <p class="ledger-val" style="color: #EF4444; font-size: 11px;">- ₹${bagPenalty.toLocaleString('en-IN')}</p>
+            </div>
+            <div class="ledger-item" style="padding-top: 0px;">
+              <div class="ledger-info"><h5>Institutional Fee</h5><p>Audit/Labor Costs</p></div>
+              <p class="ledger-val" style="color: #EF4444; font-size: 11px;">- ₹${laborCost.toLocaleString('en-IN')}</p>
+            </div>
+            <div class="ledger-item" style="background: rgba(239, 68, 68, 0.05); border-radius: 8px; padding: 12px; margin-top: 4px;">
+              <div class="ledger-info"><h5 style="color: #B91C1C;">Total Penalty Burden</h5><p style="color: #EF4444; opacity: 0.8;">Audit Final Adjustment</p></div>
+              <p class="ledger-val" style="color: #B91C1C; font-weight: 900;">- ₹${totalDeductions.toLocaleString('en-IN')}</p>
+            </div>
+            <div class="ledger-item" style="border-top: 2px solid #0F172A; margin-top: 12px; padding-top: 16px;">
+              <div class="ledger-info"><h5 style="font-size: 16px;">Total Receivables</h5></div>
+              <p class="ledger-val" style="font-size: 18px;">₹${(currentLotAmount + traderAmount + labourAmount - totalDeductions).toLocaleString('en-IN')}</p>
+            </div>
+          </div>
+
+          <div class="card" style="background: #EBFEC7;">
+            <p class="card-title" style="color: #3F6212; border-bottom-color: rgba(63,98,18,0.1)">Remittance Ledger (Success)</p>
+            ${payments.length > 0 ? payments.map(p => `
+              <div class="txn-item">
+                <div>
+                  <p class="txn-main">₹${p.amount.toLocaleString('en-IN')}</p>
+                  <p style="font-size: 9px; font-weight: 700; color: #64748B; text-transform: uppercase;">ID: REMT-${(p.id || '').toString().slice(-4).toUpperCase()} • ${p.date}</p>
+                </div>
+                <div style="text-align: right">
+                  <p style="font-size: 10px; font-weight: 800; color: #14532D;">BANK VERIFIED</p>
+                  <p style="font-size: 8px; color: #94A3B8;">${p.description || 'Paddy Procurement'}</p>
+                </div>
+              </div>
+            `).join('') : '<p style="text-align: center; font-size: 11px; font-weight: 800; color: #64748B; padding: 20px;">NO TRANSACTION ENTRIES FOUND</p>'}
+            
+            <div style="margin-top: 12px; text-align: right; padding-top: 12px; border-top: 1px dashed rgba(63,98,18,0.2)">
+              <p style="font-size: 10px; font-weight: 800; color: #3F6212;">TOTAL REMITTANCE RECEIVED</p>
+              <p style="font-size: 24px; font-weight: 900; color: #14532D;">₹${totalPayments.toLocaleString('en-IN')}</p>
+            </div>
+          </div>
+
+          <p style="text-align: center; font-size: 9px; font-weight: 700; color: #94A3B8; margin-top: 20px;">
+            DIGITALLY GENERATED AUDIT CONTEXT • PADDYNEXUS INDUSTRIAL NODE<br>
+            REF: ${Date.now()} • SECURE AUTH VERIFIED
+          </p>
         </div>
       </body>
       </html>
+
     `;
 
     const win = window.open('', '_blank');
@@ -523,85 +641,112 @@ export default function MillSettlement() {
       <!DOCTYPE html>
       <html>
       <head>
-        <title>Statement - \${millName}</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+        <title>Statement - ${millName}</title>
         <style>
-          @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
-          body { font-family: 'Inter', sans-serif; padding: 40px; color: #0f172a; line-height: 1.5; }
-          .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; }
-          .title { font-size: 24px; font-weight: 900; text-transform: uppercase; letter-spacing: -1px; }
-          .subtitle { font-size: 10px; font-weight: 700; color: #10b981; text-transform: uppercase; letter-spacing: 2px; }
-          .meta { text-align: right; font-size: 12px; color: #64748b; }
-          table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-          th { text-align: left; padding: 12px; font-size: 10px; font-weight: 900; text-transform: uppercase; color: #94a3b8; border-bottom: 1px solid #e2e8f0; }
-          td { padding: 12px; font-size: 11px; border-bottom: 1px solid #f1f5f9; }
-          .summary { margin-top: 40px; display: grid; grid-template-cols: repeat(3, 1fr); gap: 20px; }
-          .stat-box { padding: 20px; background: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0; }
-          .stat-label { font-size: 9px; font-weight: 900; color: #64748b; text-transform: uppercase; margin-bottom: 4px; }
-          .stat-value { font-size: 18px; font-weight: 900; }
-          .footer { margin-top: 60px; text-align: center; font-size: 10px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 20px; }
-          @media print { .no-print { display: none; } }
+          @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800;900&display=swap');
+          
+          * { margin: 0; padding: 0; box-sizing: border-box; -webkit-print-color-adjust: exact; }
+          body { 
+            font-family: 'Outfit', sans-serif; 
+            background: #F8FAFC; 
+            color: #0F172A; 
+            padding: 24px; 
+            padding-top: 80px;
+            line-height: 1.5; 
+          }
+
+          .no-print { position: fixed; top: 20px; right: 20px; z-index: 9999; }
+          .btn-close { 
+            width: 44px; height: 44px; border-radius: 50%; 
+            background: #0F172A; color: white; border: none; 
+            font-size: 24px; cursor: pointer; 
+            display: flex; align-items: center; justify-content: center; 
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2); 
+          }
+
+          .container { max-width: 600px; margin: 0 auto; }
+
+          .header-meta { font-size: 10px; font-weight: 800; color: #64748B; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 4px; }
+          .lot-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 24px; }
+          .lot-id { font-size: 24px; font-weight: 900; color: #0F172A; letter-spacing: -0.02em; }
+          .report-date { font-size: 11px; font-weight: 700; color: #94A3B8; }
+
+          .summary-grid { display: grid; grid-template-cols: repeat(3, 1fr); gap: 12px; margin-bottom: 32px; }
+          .stat-card { background: #FFFFFF; padding: 16px; border-radius: 20px; border: 1px solid #F1F5F9; }
+          .stat-label { font-size: 8px; font-weight: 800; color: #94A3B8; text-transform: uppercase; margin-bottom: 4px; }
+          .stat-value { font-size: 14px; font-weight: 800; }
+
+          table { width: 100%; border-collapse: separate; border-spacing: 0 8px; }
+          th { text-align: left; padding: 12px; font-size: 9px; font-weight: 900; color: #94A3B8; text-transform: uppercase; }
+          td { padding: 16px; background: #FFFFFF; font-size: 11px; font-weight: 600; }
+          td:first-child { border-radius: 12px 0 0 12px; }
+          td:last-child { border-radius: 0 12px 12px 0; text-align: right; }
+          .manifest-id { font-weight: 900; color: #0F172A; }
+
+          @media print {
+            body { padding: 0 !important; background: white !important; }
+            .no-print { display: none !important; }
+            .container { max-width: 100% !important; margin: 0 !important; }
+            .stat-card, td { border: 1px solid #F1F5F9 !important; }
+          }
         </style>
       </head>
       <body>
-        <div class="header">
-          <div>
-            <div class="subtitle">Industrial Registry Statement</div>
-            <div class="title">\${millName}</div>
-            <div style="font-size: 14px; font-weight: 700; color: #64748b; margin-top: 4px;">\${filterTitle}</div>
-          </div>
-          <div class="meta">
-            <div>Season: \${selectedYear}</div>
-            <div>Generated: \${reportDate}</div>
-            <div style="margin-top: 8px; font-weight: 900; color: #0f172a;">ID: MS-\${millId}-\${Date.now().toString().slice(-6)}</div>
-          </div>
+        <div class="no-print">
+          <button class="btn-close" onclick="window.close()">×</button>
         </div>
-
-        <div class="summary">
-          <div class="stat-box">
-            <div class="stat-label">Units Manifested</div>
-            <div class="stat-value">\${data.summary.totalBags || 0} Bags</div>
+        <div class="container">
+          <p class="header-meta">Industrial Statement</p>
+          <div class="lot-header">
+            <div>
+              <h1 class="lot-id">${millName}</h1>
+              <p class="report-date">${filterTitle}</p>
+            </div>
+            <div style="text-align: right">
+              <p class="report-date">Generated: ${reportDate}</p>
+              <p class="header-meta" style="margin-top: 4px">ID: MS-${millId}</p>
+            </div>
           </div>
-          <div class="stat-box">
-            <div class="stat-label">Total Outstanding</div>
-            <div class="stat-value" style="color: #ef4444">₹\${(data.summary.netBalance || 0).toLocaleString('en-IN')}</div>
-          </div>
-          <div class="stat-box">
-             <div class="stat-label">Audit Status</div>
-             <div class="stat-value" style="color: #10b981; text-transform: uppercase">\${data.summary.is_settled ? 'VERIFIED' : 'ACTIVE'}</div>
-          </div>
-        </div>
 
-        <table>
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Transaction ID</th>
-              <th>Resource/Entity</th>
-              <th style="text-align:right">Debit</th>
-              <th style="text-align:right">Credit</th>
-            </tr>
-          </thead>
-          <tbody>
-            \${tableRowsHtml}
-          </tbody>
-        </table>
+          <div class="summary-grid">
+            <div class="stat-card">
+              <p class="stat-label">Total Units</p>
+              <p class="stat-value">${data.summary.totalBags || 0} Bags</p>
+            </div>
+            <div class="stat-card">
+              <p class="stat-label">Net Liability</p>
+              <p class="stat-value" style="color: #EF4444">₹${(data.summary.netBalance || 0).toLocaleString('en-IN')}</p>
+            </div>
+            <div class="stat-card">
+              <p class="stat-label">Audit status</p>
+              <p class="stat-value" style="color: #10B981">${data.summary.is_settled ? 'VERIFIED' : 'ACTIVE'}</p>
+            </div>
+          </div>
 
-        <div class="footer">
-          This is an electronically generated industrial audit statement for PaddyManager.<br>
-          Verification Code: \${Math.random().toString(36).substring(7).toUpperCase()} • Institutional Protocol v2.4
+          <table>
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Reference</th>
+                <th>Entity</th>
+                <th style="text-align: right">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${tableRowsHtml}
+            </tbody>
+          </table>
         </div>
       </body>
       </html>
     `;
 
-    const printWindow = window.open('', '_blank', 'width=1000,height=800');
+    const printWindow = window.open('', '_blank');
     if (printWindow) {
       printWindow.document.write(printHtml);
       printWindow.document.close();
-      printWindow.focus();
-      setTimeout(() => {
-        printWindow.print();
-      }, 500);
+      setTimeout(() => printWindow.print(), 500);
     }
   };
 
@@ -724,8 +869,16 @@ export default function MillSettlement() {
               onClick={() => setSelectedLotId(lot.id)}
               className={`px-6 md:px-8 py-3 md:py-4 rounded-xl md:rounded-2xl text-[9px] md:text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-2 md:gap-3 ${selectedLotId === lot.id ? 'bg-primary text-slate-900 shadow-xl shadow-primary/20' : 'bg-white dark:bg-white/5 text-slate-400 border border-slate-100 dark:border-white/5 hover:border-primary/30'}`}
             >
-              <Package className="w-3.5 h-3.5" />
-              Lot-{lot.id.toString().slice(-4).toUpperCase()}
+              <div className="flex items-center gap-2">
+                <Package className="w-3.5 h-3.5" />
+                <span>Lot-{lot.id.toString().slice(-4).toUpperCase()}</span>
+                {lot.stage === 'SETTLED' && (
+                  <span className={`px-1.5 py-0.5 rounded-md text-[7px] font-black flex items-center gap-1 ${selectedLotId === lot.id ? 'bg-slate-900/10 text-slate-900' : 'bg-emerald-500/10 text-emerald-500'}`}>
+                    <CheckCircle2 className="w-2.5 h-2.5" />
+                    SETTLED
+                  </span>
+                )}
+              </div>
             </button>
           ))}
         </div>
@@ -841,7 +994,15 @@ export default function MillSettlement() {
                               </div>
                               <div>
                                 <p className="text-[11px] md:text-xs font-black text-slate-900 dark:text-white uppercase italic tracking-tighter leading-none mb-1">Lot Manifest {lot.id}</p>
-                                <p className="text-[8px] md:text-[9px] font-bold text-slate-400 uppercase tracking-widest">{lot.date}</p>
+                                <div className="flex items-center gap-2">
+                                  <p className="text-[8px] md:text-[9px] font-bold text-slate-400 uppercase tracking-widest">{lot.date}</p>
+                                  {lot.stage === 'SETTLED' && (
+                                    <span className="text-[7px] font-black text-emerald-500 uppercase tracking-widest bg-emerald-500/10 px-1.5 py-0.5 rounded-md flex items-center gap-1">
+                                      <CheckCircle2 className="w-2.5 h-2.5" />
+                                      Settled
+                                    </span>
+                                  )}
+                                </div>
                                 <p className="md:hidden text-[8px] font-bold text-slate-500 uppercase mt-1">{lot.name}</p>
                               </div>
                             </div>
@@ -1175,7 +1336,12 @@ function MillLotDashboard({
 
         <div className="bg-white dark:bg-slate-900 rounded-2xl md:rounded-[32px] p-4 md:p-6 border border-slate-100 dark:border-white/5 shadow-sm relative overflow-hidden">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-1">Settlement Session</p>
-          <h4 className="text-lg md:text-xl font-[1000] text-slate-900 dark:text-white uppercase italic tracking-tighter">BATCH: {lot.id}</h4>
+          <div className="flex items-center gap-3">
+             <h4 className="text-lg md:text-xl font-[1000] text-slate-900 dark:text-white uppercase italic tracking-tighter">BATCH: {lot.id}</h4>
+             {isSettled && (
+               <span className="px-2 py-1 bg-emerald-500 text-white rounded-lg text-[8px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20">SETTLED</span>
+             )}
+          </div>
           <p className="text-[9px] font-bold text-primary uppercase tracking-widest mt-2 bg-primary/10 px-2 py-1 rounded-lg inline-block">
             Verified Audit Cycle
           </p>
@@ -1311,7 +1477,7 @@ function MillLotDashboard({
                 onClick={() => onGenerateReport(lot, payments)}
                 className="w-full flex items-center justify-center gap-3 px-6 py-3.5 bg-slate-50 dark:bg-white/5 hover:bg-slate-100 dark:hover:bg-white/10 text-slate-600 dark:text-slate-300 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border border-slate-100 dark:border-white/5 group/btn"
               >
-                <FileText className="w-4 h-4 text-primary group-hover/btn:scale-110 transition-transform" />
+                <Download className="w-4 h-4 text-primary group-hover/btn:scale-110 transition-transform" />
                 <span className="hidden sm:inline">Download Audit Context</span>
                 <span className="sm:hidden">Download Report</span>
               </button>
