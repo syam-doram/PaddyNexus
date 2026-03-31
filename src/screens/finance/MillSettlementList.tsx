@@ -22,7 +22,9 @@ import {
   ShieldCheck,
   Receipt,
   MapPin,
-  Plus
+  Plus,
+  AlertCircle,
+  X
 } from 'lucide-react';
 import { API_BASE_URL } from '../../config/apiConfig';
 import { useAuth } from '../../context/AuthContext';
@@ -50,16 +52,18 @@ export default function MillSettlementList() {
   const [selectedYear, setSelectedYear] = useState<number>(new Date().getFullYear());
   const [selectedMonth, setSelectedMonth] = useState<number>(new Date().getMonth() + 1);
   const [activeSeason, setActiveSeason] = useState(`${new Date().getFullYear()} Harvest`);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchMills = async () => {
       try {
         setLoading(true);
+        setError(null);
         let url = `${API_BASE_URL}/mill-settlements?year=${selectedYear}`;
         if (user?.id) url += `&traderId=${user.id}`;
         const res = await fetch(url);
+        const data = await res.json();
         if (res.ok) {
-          const data = await res.json();
           const mapped: MillSummary[] = data.map((item: any) => ({
             id: item.id,
             name: item.name,
@@ -78,10 +82,12 @@ export default function MillSettlementList() {
           const validMills = mapped.filter(m => (m.settledLots || 0) + (m.pendingLots || 0) > 0);
           setMills(validMills);
         } else {
+          setError(data.message || data.error || "Failed to load mills");
           setMills([]);
         }
       } catch (err) {
         console.error("Error fetching mill summary:", err);
+        setError("Network error: Could not reach server");
       } finally {
         setLoading(false);
       }
@@ -170,6 +176,20 @@ export default function MillSettlementList() {
 
       {/* Main Content Scrollable */}
       <main className="flex-1 overflow-y-auto no-scrollbar p-4 md:p-10 pb-32 md:pb-10 space-y-8 md:space-y-12">
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="p-4 bg-rose-500/10 border border-rose-500/10 rounded-3xl flex items-center justify-between text-rose-600 dark:text-rose-400 text-[10px] font-black uppercase tracking-widest"
+          >
+            <div className="flex items-center gap-2">
+               <AlertCircle className="w-4 h-4" /> {error}
+            </div>
+            <button onClick={() => setError(null)} className="p-1 hover:bg-rose-500/10 rounded-lg">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </motion.div>
+        )}
 
         {/* KPI Intelligence Row */}
         <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-8">

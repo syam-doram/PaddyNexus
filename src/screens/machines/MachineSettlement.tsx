@@ -33,6 +33,7 @@ export default function MachineSettlement() {
   const [showBulkReport, setShowBulkReport] = useState(false);
   const [activeTab, setActiveTab] = useState<'outstanding' | 'settled'>('outstanding');
   const [viewMode, setViewMode] = useState<'grid' | 'list' | 'timeline'>('grid');
+  const [error, setError] = useState<string | null>(null);
 
 
   const years = useMemo(() => {
@@ -43,17 +44,21 @@ export default function MachineSettlement() {
 
   const fetchSettlements = async () => {
     setLoading(true);
+    setError(null);
     try {
       const tId = user?.trader_id || user?.id;
       let url = `${API_BASE_URL}/machine-settlements?year=${activeYear}`;
       if (tId) url += `&traderId=${tId}`;
       const res = await fetch(url);
       const data = await res.json();
-      if (Array.isArray(data)) {
-        setSettlements(data);
+      if (res.ok) {
+        setSettlements(Array.isArray(data) ? data : []);
+      } else {
+        setError(data.message || data.error || "Failed to load settlements");
       }
     } catch (err) {
       console.error("Failed to fetch settlements:", err);
+      setError("Network error: Could not reach server");
     } finally {
       setLoading(false);
     }
@@ -193,6 +198,20 @@ export default function MachineSettlement() {
       </header>
 
       <main className="flex-1 overflow-y-auto no-scrollbar p-6 lg:p-12 pb-32">
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-8 p-4 bg-rose-500/10 border border-rose-500/20 rounded-[32px] flex items-center justify-between text-rose-600 dark:text-rose-400 text-[11px] font-black uppercase tracking-widest"
+          >
+            <div className="flex items-center gap-2">
+               <AlertCircle className="w-4 h-4" /> {error}
+            </div>
+            <button onClick={() => setError(null)} className="p-1 hover:bg-rose-500/10 rounded-lg">
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </motion.div>
+        )}
         <div className="w-full">
             {viewMode === 'timeline' ? (
                 <div className="bg-white dark:bg-surface-dark rounded-[40px] border border-slate-100 dark:border-white/5 overflow-hidden shadow-sm">

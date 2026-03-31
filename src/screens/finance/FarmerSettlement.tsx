@@ -94,6 +94,7 @@ export default function FarmerSettlement() {
   const [amountTypeTab, setAmountTypeTab] = useState<'All' | 'Spot Cash' | 'Barrow'>('All');
   const [settledFarmers, setSettledFarmers] = useState<Set<string>>(new Set());
   const [settledDates, setSettledDates] = useState<Record<string, string>>({});
+  const [error, setError] = useState<string | null>(null);
   const printRef = useRef<HTMLDivElement>(null);
 
   const [newAdvance, setNewAdvance] = useState({
@@ -109,18 +110,20 @@ export default function FarmerSettlement() {
 
   const fetchSettlements = async () => {
     setLoading(true);
+    setError(null);
     try {
       let url = `${API_BASE_URL}/farmer-settlements?year=${selectedYear}`;
       if (user?.id) url += `&traderId=${user.id}`;
       const res = await fetch(url);
       const json = await res.json();
-      if (Array.isArray(json)) {
-        setData(json);
+      if (res.ok) {
+        setData(Array.isArray(json) ? json : []);
       } else {
-        setData([]);
+        setError(json.message || json.error || "Failed to load settlements");
       }
     } catch (err) {
       console.error("Failed to fetch settlements:", err);
+      setError("Network error: Could not reach server");
     } finally {
       setLoading(false);
     }
@@ -132,11 +135,9 @@ export default function FarmerSettlement() {
       if (user?.id) url += `&traderId=${user.id}`;
       const res = await fetch(url);
       const json = await res.json();
-      if (json.settledFarmers) {
-        setSettledFarmers(new Set(json.settledFarmers as string[]));
-      }
-      if (json.settledDates) {
-        setSettledDates(json.settledDates as Record<string, string>);
+      if (res.ok) {
+        if (json.settledFarmers) setSettledFarmers(new Set(json.settledFarmers as string[]));
+        if (json.settledDates) setSettledDates(json.settledDates as Record<string, string>);
       }
     } catch (err) {
       console.error("Failed to fetch settlement status:", err);
@@ -238,6 +239,17 @@ export default function FarmerSettlement() {
       const filteredLotMachineCost = filteredLots.reduce((acc, lot) => acc + (lot.machine_cost || 0), 0);
       const totalMachineCost = generalMachineCost + filteredLotMachineCost;
 
+      const avgWeight = filteredLots.length > 0 ?
+        filteredLots.reduce((acc, lot) => {
+          const wStr = lot.weightCapacities?.[0] || '75';
+          return acc + (parseFloat(wStr) || 75);
+        }, 0) / filteredLots.length : 75;
+
+      const avgRate = filteredLots.length > 0 ?
+        filteredLots.reduce((acc, lot) => acc + lot.rate, 0) / filteredLots.length : 1200;
+
+      const bagWeightDeductionValue = totalBags * 1 * (avgRate / avgWeight);
+
       return {
         ...f,
         lots: filteredLots,
@@ -245,7 +257,7 @@ export default function FarmerSettlement() {
         totalBags,
         totalMachineCost,
         totalGratuity,
-        netBalance: grossAmount - totalMachineCost - f.totalAdvances - totalGratuity
+        netBalance: grossAmount - totalMachineCost - f.totalAdvances - totalGratuity - bagWeightDeductionValue
       };
     });
   }, [data, searchQuery, amountTypeTab]);
@@ -267,7 +279,18 @@ export default function FarmerSettlement() {
       .reduce((acc, curr) => {
         const bags = curr.lots.reduce((a, b) => a + b.bags, 0);
         const gratuity = curr.lots.reduce((a, b) => a + (b.gratuity || 0) + (b.batch_gratuity || 0), 0);
-        const netBalance = curr.grossAmount - curr.totalMachineCost - curr.totalAdvances - gratuity;
+        
+        const avgWeight = curr.lots.length > 0 ?
+          curr.lots.reduce((a, b) => {
+            const wStr = b.weightCapacities?.[0] || '75';
+            return a + (parseFloat(wStr) || 75);
+          }, 0) / curr.lots.length : 75;
+
+        const avgRate = curr.lots.length > 0 ?
+          curr.lots.reduce((a, b) => a + b.rate, 0) / curr.lots.length : 1200;
+
+        const bagWeightDeductionValue = bags * 1 * (avgRate / avgWeight);
+        const netBalance = curr.grossAmount - curr.totalMachineCost - curr.totalAdvances - gratuity - bagWeightDeductionValue;
 
         return {
           count: acc.count + 1,
@@ -372,6 +395,20 @@ export default function FarmerSettlement() {
       </header>
 
       <main className="flex-1 overflow-y-auto px-4 pt-6 pb-32 no-scrollbar">
+        {error && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-4 p-4 bg-rose-500/10 border border-rose-500/20 rounded-2xl flex items-center justify-between text-rose-600 dark:text-rose-400 text-[11px] font-black uppercase tracking-widest"
+          >
+            <div className="flex items-center gap-2">
+               <AlertCircle className="w-4 h-4" /> {error}
+            </div>
+            <button onClick={() => setError(null)} className="p-1 hover:bg-rose-500/10 rounded-lg">
+              <X className="w-3 h-3" />
+            </button>
+          </motion.div>
+        )}
         {/* Dynamic Summary Cards */}
         <div className="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-6">
           <div className="p-5 bg-gradient-to-br from-emerald-500 to-teal-600 rounded-[32px] text-white shadow-xl shadow-emerald-500/20 relative overflow-hidden">
@@ -632,13 +669,25 @@ export default function FarmerSettlement() {
                           </button>
                           <button
                             onClick={async () => {
-                              await fetch(`${API_BASE_URL}/farmer-settlements/reopen`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ farmer_name: farmer.farmerName, year: selectedYear, traderId: user?.id })
-                              });
-                              setSettledFarmers(prev => { const n = new Set(prev); n.delete(farmer.farmerName); return n; });
-                              setSettledDates(prev => { const n = { ...prev }; delete n[farmer.farmerName]; return n; });
+                              try {
+                                const res = await fetch(`${API_BASE_URL}/farmer-settlements/reopen`, {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({
+                                    farmer_name: farmer.farmerName,
+                                    year: selectedYear,
+                                    traderId: user?.id
+                                  })
+                                });
+
+                                if (res.ok) {
+                                  await fetchSettlementStatus();
+                                } else {
+                                  console.error("Reopen failed on server");
+                                }
+                              } catch (err) {
+                                console.error("Network error during reopen:", err);
+                              }
                             }}
                             className="flex-1 h-9 rounded-xl text-[9px] font-black uppercase tracking-widest active:scale-95 transition-all border-2 bg-amber-500/5 text-amber-600 border-amber-500/20 hover:bg-amber-500/10 flex items-center justify-center gap-1.5"
                           >
@@ -866,13 +915,27 @@ export default function FarmerSettlement() {
                         <button
                           onClick={async () => {
                             if (!settlingFarmer) return;
-                            await fetch(`${API_BASE_URL}/farmer-settlements/settle`, {
-                              method: 'POST',
-                              headers: { 'Content-Type': 'application/json' },
-                              body: JSON.stringify({ farmer_name: settlingFarmer.farmerName, year: selectedYear, traderId: user?.id })
-                            });
-                            setSettledFarmers(prev => new Set([...prev, settlingFarmer.farmerName]));
-                            setSettlingFarmer(null);
+                            try {
+                              const res = await fetch(`${API_BASE_URL}/farmer-settlements/settle`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                  farmer_name: settlingFarmer.farmerName,
+                                  year: selectedYear,
+                                  traderId: user?.id
+                                })
+                              });
+
+                              if (res.ok) {
+                                await fetchSettlementStatus();
+                                setSettlingFarmer(null);
+                              } else {
+                                const err = await res.json();
+                                setError(err.message || err.error || "Settlement failed");
+                              }
+                            } catch (err) {
+                              setError("Network error: Could not complete settlement");
+                            }
                           }}
                           className="flex-1 h-16 rounded-[24px] bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black uppercase text-[11px] tracking-widest active:scale-95 transition-all shadow-xl shadow-black/20 dark:shadow-white/5 flex items-center justify-center gap-2"
                         >

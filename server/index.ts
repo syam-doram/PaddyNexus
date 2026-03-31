@@ -864,7 +864,19 @@ app.get('/api/farmer-settlements', async (req, res) => {
                                 group.lots.reduce((acc: number, lot: any) => acc + (lot.machine_hours || 0), 0);
       const totalAdvances = group.advances.reduce((acc: number, a: any) => acc + (a.amount || 0), 0);
       const totalGratuity = group.lots.reduce((acc: number, lot: any) => acc + (lot.gratuity || 0) + (lot.batch_gratuity || 0), 0);
-      const netBalance = group.grossAmount - totalMachineCost - totalAdvances - totalGratuity;
+      
+      // Bag Weight Deduction (1kg per bag)
+      const avgWeight = group.lots.length > 0 ?
+        group.lots.reduce((acc: number, lot: any) => {
+          const wStr = lot.weightCapacities?.[0] || '75';
+          return acc + (parseFloat(wStr) || 75);
+        }, 0) / group.lots.length : 75;
+
+      const avgRate = group.lots.length > 0 ?
+        group.lots.reduce((acc: number, lot: any) => acc + lot.rate, 0) / group.lots.length : 1200;
+
+      const bagWeightDeductionValue = group.totalBags * 1 * (avgRate / avgWeight);
+      const netBalance = group.grossAmount - totalMachineCost - totalAdvances - totalGratuity - bagWeightDeductionValue;
 
       return {
         ...group,
@@ -1600,8 +1612,13 @@ app.post('/api/machines/:id/settle', async (req, res) => {
       if (m && m.trader_id && m.trader_id.toString() !== traderId.toString()) return res.status(403).json({ error: 'Access denied' });
     }
     await SettlementStatus.findOneAndUpdate(
-      { machine_id: cleanId, year: targetYear },
-      { $set: { is_settled: true, settled_at: new Date().toISOString() } },
+      { machine_id: cleanId, year: targetYear, trader_id: traderId },
+      { $set: { 
+        is_settled: true, 
+        settled_at: new Date().toISOString(),
+        entity_id: cleanId, // Satisfy legacy unique index
+        entity_type: 'MACHINE' // Satisfy legacy unique index
+      } },
       { upsert: true }
     );
     res.json({ success: true, message: `Machine settled for ${targetYear}` });
@@ -1625,8 +1642,13 @@ app.post('/api/machines/:id/reopen', async (req, res) => {
       if (m && m.trader_id && m.trader_id.toString() !== traderId.toString()) return res.status(403).json({ error: 'Access denied' });
     }
     await SettlementStatus.findOneAndUpdate(
-      { machine_id: cleanId, year: targetYearNum.toString() },
-      { $set: { is_settled: false, settled_at: new Date().toISOString() } },
+      { machine_id: cleanId, year: targetYearNum.toString(), trader_id: traderId },
+      { $set: { 
+        is_settled: false, 
+        settled_at: new Date().toISOString(),
+        entity_id: cleanId, // Satisfy legacy unique index
+        entity_type: 'MACHINE' // Satisfy legacy unique index
+      } },
       { upsert: true }
     );
     res.json({ success: true, message: `Machine reopened for ${targetYearNum}` });
@@ -1648,7 +1670,7 @@ app.get('/api/machine-report/:id', async (req, res) => {
     if (!machine) return res.status(404).json({ error: 'Machine not found' });
     if (traderId && machine.trader_id && machine.trader_id.toString() !== traderId.toString()) return res.status(403).json({ error: 'Access denied' });
 
-    const settle = await SettlementStatus.findOne({ machine_id: cleanId, year: targetYear });
+    const settle = await SettlementStatus.findOne({ machine_id: cleanId, year: targetYear, ...(traderId && { trader_id: traderId }) });
     const logs = await MachineLog.find({ machine_id: cleanId, date: { $regex: `^${targetYear}` } }).sort({ date: -1 });
     const advances = await MachineAdvance.find({ machine_id: cleanId, date: { $regex: `^${targetYear}` } }).sort({ date: -1 });
     const commRate = await CommissionRate.findOne({ year: parseInt(targetYear) });
@@ -1728,14 +1750,26 @@ app.get('/api/farmer-settlements/status', async (req, res) => {
 // POST: Mark farmer as settled
 app.post('/api/farmer-settlements/settle', async (req, res) => {
   const { farmer_name, year, traderId } = req.body;
+  if (!farmer_name || !year) return res.status(400).json({ error: 'Farmer name and year are required' });
+  
   try {
+    const filter: any = { entity_name: farmer_name, year, type: 'FARMER' };
+    if (traderId) filter.trader_id = traderId;
+
     await SettlementStatus.findOneAndUpdate(
-      { entity_name: farmer_name, year, type: 'FARMER' },
-      { $set: { is_settled: true, settled_at: new Date().toISOString(), trader_id: traderId } },
+      filter,
+      { $set: { 
+        is_settled: true, 
+        settled_at: new Date().toISOString(), 
+        trader_id: traderId,
+        entity_id: farmer_name, // Satisfy legacy unique index
+        entity_type: 'FARMER'   // Satisfy legacy unique index
+      } },
       { upsert: true }
     );
     res.json({ success: true });
   } catch (error: any) {
+    console.error("Settlement error:", error);
     res.status(500).json({ error: 'Internal Server Error', message: error.message });
   }
 });
@@ -1743,14 +1777,26 @@ app.post('/api/farmer-settlements/settle', async (req, res) => {
 // POST: Reopen (unsettle) farmer
 app.post('/api/farmer-settlements/reopen', async (req, res) => {
   const { farmer_name, year, traderId } = req.body;
+  if (!farmer_name || !year) return res.status(400).json({ error: 'Farmer name and year are required' });
+
   try {
+    const filter: any = { entity_name: farmer_name, year, type: 'FARMER' };
+    if (traderId) filter.trader_id = traderId;
+
     await SettlementStatus.findOneAndUpdate(
-      { entity_name: farmer_name, year, type: 'FARMER' },
-      { $set: { is_settled: false, settled_at: new Date().toISOString(), trader_id: traderId } },
+      filter,
+      { $set: { 
+        is_settled: false, 
+        settled_at: new Date().toISOString(), 
+        trader_id: traderId,
+        entity_id: farmer_name, // Satisfy legacy unique index
+        entity_type: 'FARMER'   // Satisfy legacy unique index
+      } },
       { upsert: true }
     );
     res.json({ success: true });
   } catch (error: any) {
+    console.error("Reopen error:", error);
     res.status(500).json({ error: 'Internal Server Error', message: error.message });
   }
 });
@@ -2114,10 +2160,12 @@ app.post('/api/mill-payments', async (req, res) => {
 });
 
 app.get('/api/mill-settlements/status', async (req, res) => {
-  const { year } = req.query;
+  const { year, traderId } = req.query;
   if (!year) return res.status(400).json({ error: 'year is required' });
   try {
-    const statuses = await SettlementStatus.find({ year, is_settled: true, type: 'MILL' });
+    const filter: any = { year, is_settled: true, type: 'MILL' };
+    if (traderId) filter.trader_id = traderId;
+    const statuses = await SettlementStatus.find(filter);
     res.json({
       settledMills: statuses.map(s => s.mill_id),
       settledDates: Object.fromEntries(statuses.map(s => [s.mill_id, s.settled_at]))
@@ -2149,8 +2197,13 @@ app.post('/api/mill-settlements/settle', async (req, res) => {
     if (traderId && mill.trader_id && mill.trader_id.toString() !== traderId.toString()) return res.status(403).json({ error: 'Access denied' });
 
     await SettlementStatus.findOneAndUpdate(
-      { mill_id, year, type: 'MILL' },
-      { $set: { is_settled: true, settled_at: new Date().toISOString(), trader_id: traderId } },
+      { mill_id, year, type: 'MILL', trader_id: traderId },
+      { $set: { 
+        is_settled: true, 
+        settled_at: new Date().toISOString(),
+        entity_id: mill_id, // Satisfy legacy unique index
+        entity_type: 'MILL'   // Satisfy legacy unique index
+      } },
       { upsert: true }
     );
     res.json({ success: true });
@@ -2167,8 +2220,13 @@ app.post('/api/mill-settlements/reopen', async (req, res) => {
     if (traderId && mill.trader_id && mill.trader_id.toString() !== traderId.toString()) return res.status(403).json({ error: 'Access denied' });
 
     await SettlementStatus.findOneAndUpdate(
-      { mill_id, year, type: 'MILL' },
-      { $set: { is_settled: false, settled_at: new Date().toISOString(), trader_id: traderId } },
+      { mill_id, year, type: 'MILL', trader_id: traderId },
+      { $set: { 
+        is_settled: false, 
+        settled_at: new Date().toISOString(),
+        entity_id: mill_id, // Satisfy legacy unique index
+        entity_type: 'MILL'   // Satisfy legacy unique index
+      } },
       { upsert: true }
     );
     res.json({ success: true });

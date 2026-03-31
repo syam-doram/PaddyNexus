@@ -190,6 +190,7 @@ const SettlementStatusSchema = new mongoose.Schema({
   mill_id: String,
   entity_id: String,
   entity_name: String,
+  entity_type: String, // Legacy index field
   year: { type: String, required: true },
   is_settled: { type: Boolean, default: true },
   settled_at: { type: String, required: true },
