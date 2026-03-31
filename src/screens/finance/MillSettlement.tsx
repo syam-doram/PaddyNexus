@@ -175,17 +175,20 @@ export default function MillSettlement() {
             line-height: 1.4; 
           }
 
-          .no-print { position: fixed; top: 20px; right: 20px; z-index: 9999; display: flex; gap: 12px; }
+          .no-print { position: fixed; top: env(safe-area-inset-top, 20px); right: 20px; z-index: 99999; display: flex; gap: 16px; margin-top: 10px; }
           .btn-action { 
-            width: 44px; height: 44px; border-radius: 50%; 
+            width: 56px; height: 56px; border-radius: 50%; 
             background: #0F172A; color: white; border: none; 
-            font-size: 20px; cursor: pointer; 
+            font-size: 24px; cursor: pointer; 
             display: flex; align-items: center; justify-content: center; 
-            box-shadow: 0 10px 25px rgba(0,0,0,0.2); 
-            transition: transform 0.2s;
+            box-shadow: 0 15px 30px rgba(0,0,0,0.3); 
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            -webkit-tap-highlight-color: transparent;
+            pointer-events: auto;
           }
-          .btn-action:active { transform: scale(0.9); }
+          .btn-action:active { transform: scale(0.85); box-shadow: 0 5px 15px rgba(0,0,0,0.4); }
           .btn-download { background: #10B981; }
+          .btn-action svg { pointer-events: none; }
 
           .container { max-width: 500px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
 
@@ -264,10 +267,10 @@ export default function MillSettlement() {
       </head>
       <body>
         <div class="no-print">
-          <button class="btn-action btn-download" onclick="window.print()">
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2-2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <button class="btn-action btn-download" type="button" onclick="window.print(); return false;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2-2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
           </button>
-          <button class="btn-action" onclick="window.close()">×</button>
+          <button class="btn-action" type="button" onclick="self.close(); return false;">×</button>
         </div>
         <div class="container">
           <div>
